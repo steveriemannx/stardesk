@@ -14,6 +14,7 @@
 #include "../ui/SettingsWindow.h"
 
 #include <algorithm>
+#include <vector>
 #include <functional>
 #include <memory>
 #include <chrono>
@@ -1357,6 +1358,31 @@ LRESULT MainWindow::OnPaintMsg(const ui::UiRect& rcPaint, const ui::NativeMsg& n
             };
             dumpControl(GetRoot(), 0);
             fflush(stderr);
+
+            // try to read the painted pixels back through the render interface
+            ui::IRender* pShotRender = GetRender();
+            if (pShotRender != nullptr) {
+                ui::UiRect rcClientShot;
+                GetClientRect(rcClientShot);
+                const int32_t shotW = rcClientShot.Width();
+                const int32_t shotH = rcClientShot.Height();
+                if (shotW > 0 && shotH > 0) {
+                    std::vector<uint8_t> pixels((size_t)shotW * shotH * 4);
+                    const bool readOk = pShotRender->ReadPixels(
+                        ui::UiRect(0, 0, shotW, shotH), pixels.data(), pixels.size());
+                    fprintf(stderr, "[shot] ReadPixels=%s %dx%d\n", readOk ? "ok" : "failed",
+                            shotW, shotH);
+                    if (readOk) {
+                        FILE* pShotFile = std::fopen(snapshotPath, "wb");
+                        if (pShotFile != nullptr) {
+                            const uint32_t header[2] = {(uint32_t)shotW, (uint32_t)shotH};
+                            std::fwrite(header, sizeof(uint32_t), 2, pShotFile);
+                            std::fwrite(pixels.data(), 1, pixels.size(), pShotFile);
+                            std::fclose(pShotFile);
+                        }
+                    }
+                }
+            }
             fflush(stderr);
             ui::IRender* pRender = GetRender();
             if (pRender != nullptr) {

@@ -107,6 +107,29 @@ void RunTextProbe(const std::string& path)
         y += 70;
     }
 
+    // self-consistency check: measure a string, then draw it into exactly that
+    // width - if the renderer still ellipsizes, measure and draw disagree
+    {
+        const char* samples[] = {"连接密码", "远程控制", "状态", "密码", "本机设备", "连接方式"};
+        int sampleY = 16 + 70 * (int)lines.size();
+        for (const char* sample : samples) {
+            MeasureStringParam mp;
+            mp.rectSize = 4000;
+            mp.pFont = pFont;
+            mp.uFormat = TEXT_SINGLELINE | TEXT_END_ELLIPSIS;
+            const UiRect measured = drawText.MeasureString(sample, mp);
+            fprintf(stderr, "[probe] measure \"%s\" = %d x %d\n", sample,
+                    measured.Width(), measured.Height());
+            DrawStringParam dp;
+            dp.textRect = UiRect(20, sampleY, 20 + measured.Width(), sampleY + 40);
+            dp.dwTextColor = UiColor(0xFF111827);
+            dp.pFont = pFont;
+            dp.uFormat = TEXT_SINGLELINE | TEXT_LEFT | TEXT_VCENTER | TEXT_END_ELLIPSIS;
+            drawText.DrawString(sample, dp);
+            sampleY += 50;
+        }
+    }
+
     std::vector<uint8_t> pixels((size_t)kWidth * kHeight * 4);
     if (!surface->readPixels(info, pixels.data(), kWidth * 4, 0, 0)) {
         fprintf(stderr, "[probe] readPixels failed\n");
