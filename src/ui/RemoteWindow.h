@@ -49,6 +49,9 @@ private:
     void UpdateCursorPillText();
     void ToggleFullscreen();
     void Disconnect();
+    /** Tear the session down off the UI thread (Stop() can block on a dead
+     *  socket / decoder join; doing that in the close handler froze the window). */
+    void StopSessionAsync();
     void ToggleFit();
     void SwitchCodec(int codec);
     void UpdateCodecPill();

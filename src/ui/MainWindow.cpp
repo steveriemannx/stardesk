@@ -1563,6 +1563,27 @@ LRESULT MainWindow::OnPaintMsg(const ui::UiRect& rcPaint, const ui::NativeMsg& n
     // short delay so dialogs/second windows exist; optional test hooks:
     //   STARDESK_UI_SHOT_TAB=file   select the file tab first
     //   STARDESK_UI_SHOT_TYPE=1     type a password into the remote field first
+    // developer test: close the remote view while it is streaming, then verify
+    // the UI is still responsive (the close used to freeze on Linux)
+    static bool sCloseTestScheduled = false;
+    if (!sCloseTestScheduled && std::getenv("STARDESK_TEST_CLOSE_REMOTE") != nullptr) {
+        sCloseTestScheduled = true;
+        std::thread([this]() {
+            std::this_thread::sleep_for(std::chrono::seconds(6));
+            PostToUI(ui::UiBind(this, [this]() {
+                fprintf(stderr, "[test] closing remote window (ptr=%p)\n", (void*)m_remoteWin);
+                fflush(stderr);
+                if (m_remoteWin != nullptr) {
+                    m_remoteWin->CloseWnd();
+                }
+            }));
+            std::this_thread::sleep_for(std::chrono::seconds(3));
+            fprintf(stderr, "[test] UI still responsive after close\n");
+            fflush(stderr);
+            std::_Exit(0);
+        }).detach();
+    }
+
     // developer test: close the remote view and connect again (crash repro)
     static bool sReconnectTestScheduled = false;
     if (!sReconnectTestScheduled && std::getenv("STARDESK_TEST_RECONNECT") != nullptr) {

@@ -86,9 +86,7 @@ RemoteWindow::~RemoteWindow()
     App::Instance().RemoveListener(this);
     delete m_cursorBitmap;
     m_cursorBitmap = nullptr;
-    if (m_session) {
-        m_session->Stop();
-    }
+    StopSessionAsync();
 }
 
 std::string RemoteWindow::GetSkinFolder()
@@ -928,6 +926,19 @@ void RemoteWindow::ToggleFullscreen()
     }
 }
 
+void RemoteWindow::StopSessionAsync()
+{
+    if (!m_session) {
+        return;
+    }
+    // move ownership into a detached thread: the window can close immediately
+    // while the socket/decoder threads wind down without blocking the UI
+    std::unique_ptr<ClientSession> session = std::move(m_session);
+    std::thread([session = std::move(session)]() mutable {
+        session->Stop();
+    }).detach();
+}
+
 void RemoteWindow::OnPreCloseWindow()
 {
     // notify the owner before the window goes away: the main window must drop
@@ -938,10 +949,7 @@ void RemoteWindow::OnPreCloseWindow()
         m_onClosed = nullptr;
         closedCallback();
     }
-    if (m_session) {
-        m_session->Stop();
-        m_session.reset();
-    }
+    StopSessionAsync();
     BaseClass::OnPreCloseWindow();
 }
 
@@ -959,10 +967,7 @@ void RemoteWindow::Disconnect()
     if (m_disconnectBtn != nullptr) {
         m_disconnectBtn->SetEnabled(false);
     }
-    if (m_session) {
-        m_session->Stop();
-        m_session.reset();
-    }
+    StopSessionAsync();
     CloseWnd();
 }
 
