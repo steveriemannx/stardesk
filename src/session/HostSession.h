@@ -44,7 +44,7 @@ public:
         /** UI thread (posted): show the manual-accept dialog. The session is
          *  passed so the dialog can report the decision back. */
         std::function<void(HostSession* session, const AskInfo& info)> onAsk;
-        /** UI thread (posted): a peer asks US to control IT ("请求协助").
+        /** UI thread (posted): a peer asks US to control IT ("request help").
          *  token is the one-time token to present when connecting back. */
         std::function<void(const std::string& ip, uint16_t port, const std::string& name,
                            const uint8_t token[32])> onInvite;

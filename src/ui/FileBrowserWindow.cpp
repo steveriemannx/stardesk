@@ -485,7 +485,7 @@ void FileBrowserWindow::RefreshRemote()
         return;
     }
     m_remoteLoading = true;
-    // a directory-list refresh must NOT show the "正在下载..." status (that
+    // a directory-list refresh must NOT show the "downloading..." status (that
     // text is for real file downloads) - it would flash briefly on every
     // refresh (pane refresh button / right-click menu refresh)
     m_sessionRaw->RequestDirList(m_remotePath);

@@ -38,8 +38,8 @@ private:
     PillButton* MakePill(const char* key);
 
     // option rows (values are persisted to AppConfig)
-    PillButton* m_viewOnlyPill = nullptr;  // 观看
-    PillButton* m_controlPill = nullptr;   // 控制
+    PillButton* m_viewOnlyPill = nullptr;  // view only
+    PillButton* m_controlPill = nullptr;   // control
     PillButton* m_resOriginalPill = nullptr;
     PillButton* m_res720Pill = nullptr;
     PillButton* m_res1080Pill = nullptr;

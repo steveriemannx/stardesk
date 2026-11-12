@@ -12,11 +12,11 @@
 
 namespace sdk {
 
-/** Two-pane file browser opened from the remote window's 传输文件 button.
+/** Two-pane file browser opened from the remote window's "send file" button.
  *
  *  Left pane = local files, right pane = remote (host) files. Clicking a
  *  file uploads (local -> remote) or downloads (remote -> local) it; clicking
- *  a folder enters it; the 上级 button goes up; local files can be dragged
+ *  a folder enters it; the "up" button goes up; local files can be dragged
  *  onto the window to upload them to the remote's current folder.
  */
 class FileBrowserWindow : public ui::WindowImplBase, public IAppListener

@@ -9,10 +9,10 @@ namespace sdk {
  *  and the order of the language picker.
  */
 enum class Lang : int {
-    ZhCN = 0, // 简体中文
-    ZhTW = 1, // 繁體中文
+    ZhCN = 0, // Simplified Chinese
+    ZhTW = 1, // Traditional Chinese
     En = 2,   // English
-    Ja = 3,   // 日本語
+    Ja = 3,   // Japanese
     Ko = 4,   // 한국어
     De = 5,   // Deutsch
     Fr = 6,   // Français

@@ -48,7 +48,7 @@ public:
         ConnMode mode = ConnMode::Control;
         int resCode = 0; // 0=original 1=720p 2=1080p
         int fps = 30;    // 24/30/60
-        /** Reverse remote-assistance ("请求协助"): the host that invited us gave
+        /** Reverse remote-assistance ("request help"): the host that invited us gave
          *  us a one-time token; it is sent in the Hello trailer instead of
          *  using a password. */
         bool useInvite = false;

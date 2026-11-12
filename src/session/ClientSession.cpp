@@ -1055,7 +1055,7 @@ void ClientSession::UpdateStats()
         if (cb.onStats) {
             // Parsec-style split display: report the RENDER rate (the UI
             // repaints at this rate even when idle) AND the real received
-            // rate, so the status bar can show both (渲染 60 | 远端 1)
+            // rate, so the status bar can show both (render 60 | remote 1)
             cb.onStats(m_opt.fps, rxFps, m_latencyMs);
         }
     }

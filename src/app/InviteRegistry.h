@@ -10,7 +10,7 @@
 
 namespace sdk {
 
-/** One-time tokens for reverse remote-assistance invitations ("请求协助").
+/** One-time tokens for reverse remote-assistance invitations ("request help").
  *  The machine that wants to be controlled creates a token, sends it to the
  *  peer and waits (TTL) for a connection carrying that token in its Hello.
  *  Consume() removes the token, so it can be used exactly once.

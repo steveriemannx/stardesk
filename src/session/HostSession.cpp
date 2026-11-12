@@ -334,7 +334,7 @@ void HostSession::RunImpl()
     // previous session cannot shift the pointer (intermittent offset fix)
     InputInjector::ResetCursor();
     if (m_cb.onStatus) {
-        // "xxx 正在连接本机" (format via UTF-8 to work on narrow + wide builds)
+        // "xxx is connecting to this machine" (UTF-8 formatting for narrow + wide builds)
         const std::string fmt = ui::StringConvert::TToUTF8(SDK_TR("host.sessionOf"));
         const std::string text = ui::StringUtil::Printf(fmt.c_str(), deviceName.c_str());
         m_cb.onStatus(ui::StringConvert::UTF8ToT(text), true);

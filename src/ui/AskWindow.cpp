@@ -61,7 +61,7 @@ void AskWindow::GetCreateWindowAttributes(ui::WindowCreateAttributes& attrs)
 void AskWindow::OnInitWindow()
 {
     if (std::getenv("STARDESK_AUTO_ACCEPT_ASK_WINDOW") != nullptr) {
-        // test hook: run the accept path exactly like a click on 允许
+        // test hook: run the accept path exactly like clicking "Allow"
         std::thread([this]() {
             std::this_thread::sleep_for(std::chrono::milliseconds(900));
             PostToUI(ui::UiBind(this, [this]() {
@@ -192,7 +192,7 @@ void AskWindow::ApplyLanguage()
     if (m_textLabel == nullptr) {
         return;
     }
-    // "设备名(ip) 请求控制/观看 本机"
+    // "device (ip) requests to control/view this machine"
     const std::string mode = m_info.view ? SDK_TR("client.modeView") : SDK_TR("client.modeControl");
     const std::string fmt = ui::StringConvert::TToUTF8(SDK_TR("ask.text"));
     const std::string name = ui::StringConvert::TToUTF8(m_info.deviceName);

@@ -239,7 +239,7 @@ void RemoteWindow::OnInitWindow()
     m_bitmap->SetMouseEnabled(!viewOnly);
     root->AddItem(m_bitmap);
     // centered in all modes; default is FILL (stretch to the window - both
-    // screens here are 16:10, so the stretch is invisible). The 适配 pill
+    // screens here are 16:10, so the stretch is invisible). The "fit" pill
     // toggles to FIT (proportional, centered) for exact aspect.
     ApplyDisplayMode();
 
@@ -952,7 +952,7 @@ void RemoteWindow::ToggleFullscreen()
     else {
         ExitFullscreen();
     }
-    // the pill label reflects the current state (全屏 <-> 退出全屏)
+    // the pill label reflects the current state (fullscreen <-> exit fullscreen)
     if (m_fullscreenPill != nullptr) {
         m_fullscreenPill->SetText(m_fullscreen ? SDK_TR("remote.exitFullscreen")
                                                : SDK_TR("remote.fullscreen"));

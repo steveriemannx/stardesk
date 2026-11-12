@@ -773,7 +773,7 @@ void MainWindow::OnInitWindow()
     });
     row3->AddItem(m_connectBtn);
 
-    // status on its own line: sharing the row squeezed "已连接" down to a single
+    // status on its own line: sharing the row squeezed "connected" down to a single
     // character on Retina macs
     ui::HBox* statusRow = makeRow(cardConn, "20");
     m_connStatusLabel = static_cast<ThemeLabel*>(MakeLabel("", ThemeLabel::Role::Sub));
@@ -1275,7 +1275,7 @@ void MainWindow::OnClientState(ClientSession::State state, const std::string& te
             // stays visible behind it but the user expects the video page
             rw->SetWindowForeground();
 
-            // the file browser is opened on demand (the 传输文件 button); it
+            // the file browser is opened on demand (the "send file" button); it
             // is NOT auto-opened on connect anymore (feature is tested)
         }
     }
@@ -1964,7 +1964,7 @@ LRESULT MainWindow::OnPaintMsg(const ui::UiRect& rcPaint, const ui::NativeMsg& n
                     InvalidateAll();
                 }
                 if (std::getenv("STARDESK_UI_SHOT_INVITE") != nullptr) {
-                    InviteWindow* dlg = new InviteWindow("Linux 测试", "192.168.137.148", false,
+                    InviteWindow* dlg = new InviteWindow("Linux Test", "192.168.137.148", false,
                                                          [](bool) {});
                     dlg->CreateWnd(this, ui::WindowCreateParam("StarDesk", true));
                     dlg->ShowWindow(ui::kSW_SHOW_NORMAL);

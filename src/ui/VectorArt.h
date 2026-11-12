@@ -76,7 +76,7 @@ public:
     void PaintText(ui::IRender* pRender, const ui::UiRect& rcPaint);
 
     void SetAccentTextColor(const ui::UiColor& c) { m_textColor = c; }
-    /** Destructive styling: use the theme's danger colour (e.g. 断开). */
+    /** Destructive styling: use the theme's danger colour (e.g. "disconnect"). */
     void SetDangerLook(bool danger) { m_danger = danger; }
 
 private:

@@ -70,7 +70,7 @@ namespace {
 
 // DRM_FORMAT fourcc codes (little-endian). The negotiated PipeWire
 // spa_video_format maps to one of these; using the correct FOURCC for
-// EGL_LINUX_DRM_FOURCC_EXT avoids R↔B channel swap (花屏/garbled colours).
+// EGL_LINUX_DRM_FOURCC_EXT avoids the R<->B channel swap (garbled colours).
 constexpr uint32_t kDrmFormatXrgb8888 = 0x34325258; // B-G-R-X
 constexpr uint32_t kDrmFormatXbgr8888 = 0x34324258; // R-G-B-X
 constexpr uint32_t kDrmFormatArgb8888 = 0x34325241; // B-G-R-A
