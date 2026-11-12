@@ -363,12 +363,14 @@ void MainWindow::OnInitWindow()
     acceptRow->SetAttribute("child_margin_x", "6");
     cardAccept->AddItem(acceptRow);
 
-    m_autoAcceptPill = MakePill("host.autoAccept");
+    m_autoAcceptPill = MakePill("host.autoAcceptShort");
     m_autoAcceptPill->SetAttribute("height", "30");
+    m_autoAcceptPill->SetToolTipText(SDK_TR("host.autoAccept"));
     acceptRow->AddItem(m_autoAcceptPill);
 
-    m_manualAcceptPill = MakePill("host.manualAccept");
+    m_manualAcceptPill = MakePill("host.manualAcceptShort");
     m_manualAcceptPill->SetAttribute("height", "30");
+    m_manualAcceptPill->SetToolTipText(SDK_TR("host.manualAccept"));
     acceptRow->AddItem(m_manualAcceptPill);
 
     const bool manual = App::Instance().Config().manualAccept;
@@ -402,11 +404,13 @@ void MainWindow::OnInitWindow()
     shareRow->SetAttribute("child_margin_x", "6");
     cardShare->AddItem(shareRow);
 
-    m_mirrorPill = MakePill("host.shareMirror");
+    m_mirrorPill = MakePill("host.shareMirrorShort");
+    m_mirrorPill->SetToolTipText(SDK_TR("host.shareMirror"));
     m_mirrorPill->SetAttribute("height", "30");
     shareRow->AddItem(m_mirrorPill);
 
-    m_extendPill = MakePill("host.shareExtend");
+    m_extendPill = MakePill("host.shareExtendShort");
+    m_extendPill->SetToolTipText(SDK_TR("host.shareExtend"));
     m_extendPill->SetAttribute("height", "30");
     shareRow->AddItem(m_extendPill);
 
@@ -542,7 +546,7 @@ void MainWindow::OnInitWindow()
     };
 
     // header: card title + settings button (mode/resolution/fps live there)
-    ui::HBox* headRow = makeRow(cardConn, "28");
+    ui::HBox* headRow = makeRow(cardConn, "32");
     m_connTitleLabel = static_cast<ThemeLabel*>(MakeLabel("client.title", ThemeLabel::Role::Title));
     m_connTitleLabel->SetAttribute("width", "auto");
     headRow->AddItem(m_connTitleLabel);
@@ -561,7 +565,7 @@ void MainWindow::OnInitWindow()
     headRow->AddItem(m_settingsBtn);
 
     // IP + port row
-    ui::HBox* row1 = makeRow(cardConn, "28");
+    ui::HBox* row1 = makeRow(cardConn, "34");
     row1->AddItem(makeFieldLabel("client.ip"));
     m_remoteIpEdit = MakeEdit("client.ip", false);
     m_remoteIpEdit->SetText("127.0.0.1");
@@ -574,13 +578,13 @@ void MainWindow::OnInitWindow()
     row1->AddItem(m_remotePortEdit);
 
     // password row
-    ui::HBox* row2 = makeRow(cardConn, "28");
+    ui::HBox* row2 = makeRow(cardConn, "34");
     row2->AddItem(makeFieldLabel("client.password"));
     m_remotePwdEdit = MakeEdit("client.password", true);
     row2->AddItem(m_remotePwdEdit);
 
     // connect row
-    ui::HBox* row3 = makeRow(cardConn, "32");
+    ui::HBox* row3 = makeRow(cardConn, "40");
     m_connectBtn = new AccentButton(this);
     m_connectBtn->SetText(SDK_TR("client.connect"));
     m_connectBtn->SetAttribute("width", "124");
@@ -1263,10 +1267,10 @@ void MainWindow::ApplyLanguage()
 
     m_tabRemote->SetText(SDK_TR("client.title"));
     m_tabFile->SetText(SDK_TR("file.title"));
-    m_autoAcceptPill->SetText(SDK_TR("host.autoAccept"));
-    m_manualAcceptPill->SetText(SDK_TR("host.manualAccept"));
-    m_mirrorPill->SetText(SDK_TR("host.shareMirror"));
-    m_extendPill->SetText(SDK_TR("host.shareExtend"));
+    m_autoAcceptPill->SetText(SDK_TR("host.autoAcceptShort"));
+    m_manualAcceptPill->SetText(SDK_TR("host.manualAcceptShort"));
+    m_mirrorPill->SetText(SDK_TR("host.shareMirrorShort"));
+    m_extendPill->SetText(SDK_TR("host.shareExtendShort"));
     m_connTitleLabel->SetText(SDK_TR("client.title"));
     m_settingsBtn->SetIconToolTip(SDK_TR("settings.openSettings"));
     m_connectBtn->SetText(SDK_TR("client.connect"));

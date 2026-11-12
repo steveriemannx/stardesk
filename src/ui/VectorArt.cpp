@@ -284,6 +284,7 @@ AccentButton::AccentButton(ui::Window* pWindow)
     : BaseClass(pWindow), m_textColor(0xFFFFFFFF)
 {
     SetMouseEnabled(true);
+    SetTextPadding(ui::UiPadding(16, 0, 16, 0), true);
 }
 
 void AccentButton::Paint(IRender* pRender, const UiRect& rcPaint)
@@ -328,6 +329,8 @@ PillButton::PillButton(ui::Window* pWindow) : BaseClass(pWindow)
     SetMouseEnabled(true);
     SetAttribute("text_align", "hcenter,vcenter");
     SetAttribute("font", "system_12");
+    // keep the label clear of the rounded ends (the chip is auto-width)
+    SetTextPadding(ui::UiPadding(14, 0, 14, 0), true);
 }
 
 void PillButton::Paint(IRender* pRender, const UiRect& rcPaint)
@@ -353,7 +356,8 @@ void PillButton::Paint(IRender* pRender, const UiRect& rcPaint)
     else if (state == ui::kControlStatePushed) {
         bg = p.pressedBg;
     }
-    const float radius = std::min(rc.Height() / 2.0f, 14.0f);
+    // rounded-rect chip: a full pill radius made the ends swallow the label
+    const float radius = std::min(rc.Height() / 2.0f, 8.0f);
     pRender->FillRoundRect(UiRectF::MakeFromRect(rc), radius, radius, bg, 255);
     pRender->DrawRoundRect(UiRectF::MakeFromRect(rc), radius, radius, border, 1.0f);
     PaintText(pRender, rcPaint);
