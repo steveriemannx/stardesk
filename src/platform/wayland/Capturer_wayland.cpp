@@ -1167,14 +1167,28 @@ void PwOnProcess(void* data)
         }
     }
     else if (d->type == SPA_DATA_MemFd && d->data != nullptr) {
-        // memfd: direct copy (BGRA/XRGB, bottom-up on some compositors)
+        // memfd: CPU-readable and linear. The pixels are in the negotiated DRM
+        // layout (BGRx on mutter), so the copy must swap R and B into the
+        // RGBA frame - a straight memcpy showed the remote desktop with red
+        // and blue exchanged.
         const uint8_t* src = (const uint8_t*)d->data + offset;
         const size_t rowBytes = (size_t)w * 4;
         if (size >= (size_t)h * stride) {
             out.rgba.resize((size_t)w * h * 4);
+            const bool needSwap = IsBgrLayout(impl->drmFormat);
+            const bool forceAlpha = IsXrgbFormat(impl->drmFormat);
+            uint32_t* dst = (uint32_t*)out.rgba.data();
             for (int y = 0; y < h; ++y) {
-                memcpy(out.rgba.data() + (size_t)y * rowBytes,
-                       src + (size_t)y * stride, rowBytes);
+                const uint32_t* s = (const uint32_t*)(src + (size_t)y * stride);
+                uint32_t* t = dst + (size_t)y * (size_t)w;
+                for (int x = 0; x < w; ++x) {
+                    const uint32_t v = s[x];
+                    t[x] = needSwap
+                        ? (((v & 0x000000FFu) << 16) | (v & 0x0000FF00u) |
+                           ((v & 0x00FF0000u) >> 16) |
+                           (forceAlpha ? 0xFF000000u : (v & 0xFF000000u)))
+                        : (forceAlpha ? (v | 0xFF000000u) : v);
+                }
             }
             out.width = w;
             out.height = h;

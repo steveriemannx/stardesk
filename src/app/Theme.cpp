@@ -62,56 +62,14 @@ const Palette& Theme::Light()
     return p;
 }
 
-/** Swap the R and B channels of a colour. Some EGL / Wayland compositor
- *  combinations deliver pixels in BGRA order while dui renders in RGBA;
- *  swapping R↔B in the palette makes the UI colours match Windows. */
-static ui::UiColor SwapRB(ui::UiColor c)
-{
-    const uint32_t v = c.GetARGB(); // 0xAARRGGBB
-    const uint32_t a = (v >> 24) & 0xFF;
-    const uint32_t r = (v >> 16) & 0xFF;
-    const uint32_t g = (v >> 8) & 0xFF;
-    const uint32_t b = v & 0xFF;
-    return ui::UiColor((a << 24) | (b << 16) | (g << 8) | r);
-}
-
-#if !defined(_WIN32)
-static Palette SwapPalette(const Palette& src)
-{
-    Palette p = src;
-    p.windowBg      = SwapRB(p.windowBg);
-    p.panelBg       = SwapRB(p.panelBg);
-    p.inputBg       = SwapRB(p.inputBg);
-    p.hoverBg       = SwapRB(p.hoverBg);
-    p.pressedBg     = SwapRB(p.pressedBg);
-    p.border        = SwapRB(p.border);
-    p.textMain      = SwapRB(p.textMain);
-    p.textSub       = SwapRB(p.textSub);
-    p.textInvert    = SwapRB(p.textInvert);
-    p.prompt        = SwapRB(p.prompt);
-    p.accent        = SwapRB(p.accent);
-    p.accentHover   = SwapRB(p.accentHover);
-    p.accentPressed = SwapRB(p.accentPressed);
-    p.success       = SwapRB(p.success);
-    p.danger        = SwapRB(p.danger);
-    p.progressBg    = SwapRB(p.progressBg);
-    p.progressFg    = SwapRB(p.progressFg);
-    p.listHover     = SwapRB(p.listHover);
-    p.listSelected  = SwapRB(p.listSelected);
-    p.captionBg     = SwapRB(p.captionBg);
-    return p;
-}
-#endif
+// The palette values are the actual colours: dui renders them as declared on
+// every platform. (An earlier revision swapped R and B on non-Windows builds
+// to compensate for a BGR capture path; that workaround turned the blue accent
+// orange and is gone.)
 
 const Palette& Theme::Get()
 {
-#if !defined(_WIN32)
-    static const Palette darkSwapped  = SwapPalette(Dark());
-    static const Palette lightSwapped = SwapPalette(Light());
-    return s_isDark ? darkSwapped : lightSwapped;
-#else
     return s_isDark ? Dark() : Light();
-#endif
 }
 
 void Theme::Set(bool dark)
