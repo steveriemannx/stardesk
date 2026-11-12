@@ -1466,6 +1466,11 @@ void MainWindow::RefreshPermissionState()
         permissionTooltip += SDK_TR("remote.permissionHint");
     }
 #endif
+#ifdef __APPLE__
+    if (!permissionTooltip.empty()) {
+        permissionTooltip += "\n\nApp: /Applications/StarDesk.app";
+    }
+#endif
     const bool needed = !permissionHint.empty();
     if (m_permissionHint->IsVisible() != needed) {
         m_permissionHint->SetVisible(needed);

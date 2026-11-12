@@ -42,6 +42,19 @@ dui 的 examples / tests / CEF;Skia 使用预编译静态库)。所以构建目�
 本地 build 目录已配置 **ccache**(`CMAKE_CXX_COMPILER_LAUNCHER`),清理后或大范围重编
 时命中缓存会快很多。
 
+### macOS 安装（权限）
+
+macOS 的「隐私与安全性」列表只方便添加 `*.app` 包，推荐把构建产物安装到
+`/Applications` 再授权：
+
+```bash
+./scripts/install-macos.sh   # 拷到 /Applications/StarDesk.app、重置权限、启动
+```
+
+然后再到 **系统设置 → 隐私与安全性 → 辅助功能 / 屏幕录制** 里勾选 StarDesk
+（没有条目时点 "+" → Cmd+Shift+G → 输入 `/Applications` → 选 StarDesk.app）。
+注意每次重新编译后 ad-hoc 签名会变化，权限可能需要重新勾选（重跑上面的脚本即可）。
+
 ### 构建/部署脚本
 
 ```bash
