@@ -82,6 +82,8 @@ RemoteWindow::RemoteWindow(std::unique_ptr<ClientSession> session)
 
 RemoteWindow::~RemoteWindow()
 {
+    fprintf(stderr, "[close] destructor\n");
+    fflush(stderr);
     SetLocalCursorHidden(false);
     App::Instance().RemoveListener(this);
     delete m_cursorBitmap;
@@ -129,6 +131,37 @@ void RemoteWindow::GetCreateWindowAttributes(ui::WindowCreateAttributes& attrs)
 
 void RemoteWindow::OnInitWindow()
 {
+    // developer test hooks: exercise the close/disconnect paths from inside
+    // this window's own event dispatch (same context as a real click)
+    if (std::getenv("STARDESK_TEST_REMOTE_CLOSE") != nullptr) {
+        std::thread([this]() {
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+            PostToUI(ui::UiBind(this, [this]() {
+                fprintf(stderr, "[test] CloseWnd from window dispatch\n");
+                fflush(stderr);
+                CloseWnd();
+            }));
+            std::this_thread::sleep_for(std::chrono::seconds(3));
+            fprintf(stderr, "[test] responsive after CloseWnd\n");
+            fflush(stderr);
+            std::_Exit(0);
+        }).detach();
+    }
+    if (std::getenv("STARDESK_TEST_REMOTE_DISCONNECT") != nullptr) {
+        std::thread([this]() {
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+            PostToUI(ui::UiBind(this, [this]() {
+                fprintf(stderr, "[test] Disconnect() from window dispatch\n");
+                fflush(stderr);
+                Disconnect();
+            }));
+            std::this_thread::sleep_for(std::chrono::seconds(3));
+            fprintf(stderr, "[test] responsive after Disconnect\n");
+            fflush(stderr);
+            std::_Exit(0);
+        }).detach();
+    }
+
     // pure-code windows must apply the caption/size-box rects themselves
     // (XML mode does this in WindowBuilder; attrs.m_rcCaption is not applied)
     SetSizeBox(ui::UiRect(4, 4, 4, 4), true);
@@ -941,6 +974,8 @@ void RemoteWindow::StopSessionAsync()
 
 void RemoteWindow::OnPreCloseWindow()
 {
+    fprintf(stderr, "[close] preclose begin\n");
+    fflush(stderr);
     // notify the owner before the window goes away: the main window must drop
     // its pointer here, otherwise a click on its button right after the close
     // would touch a destroyed window (crash on "close then connect").
@@ -950,7 +985,11 @@ void RemoteWindow::OnPreCloseWindow()
         closedCallback();
     }
     StopSessionAsync();
+    fprintf(stderr, "[close] preclose -> base close\n");
+    fflush(stderr);
     BaseClass::OnPreCloseWindow();
+    fprintf(stderr, "[close] preclose done\n");
+    fflush(stderr);
 }
 
 void RemoteWindow::Disconnect()
@@ -958,6 +997,8 @@ void RemoteWindow::Disconnect()
     if (m_disconnecting) {
         return;
     }
+    fprintf(stderr, "[close] disconnect begin\n");
+    fflush(stderr);
     m_disconnecting = true;
     SetLocalCursorHidden(false);
     // immediate feedback: the teardown takes a moment

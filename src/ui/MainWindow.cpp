@@ -1034,6 +1034,8 @@ void MainWindow::OnClientState(ClientSession::State state, const std::string& te
             RemoteWindow* rw = new RemoteWindow(std::move(m_client));
             m_remoteWin = rw;
             rw->SetClosedCallback([this]() {
+                fprintf(stderr, "[close] main remote pointer reset\n");
+                fflush(stderr);
                 m_remoteWin = nullptr; // synchronous: do not leave a stale pointer
                 PostToUI(ui::UiBind(this, [this]() {
                     m_connectBtn->SetText(SDK_TR("client.connect"));
