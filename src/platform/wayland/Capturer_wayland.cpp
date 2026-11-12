@@ -1484,6 +1484,23 @@ bool Capturer::StartMetaCast(bool extend)
             const char* connectorCStr = connector.c_str();
             dbus_message_iter_append_basic(&args, DBUS_TYPE_STRING, &connectorCStr);
             dbus_message_iter_open_container(&args, DBUS_TYPE_ARRAY, "{sv}", &dict);
+            {
+                // cursor-mode: 2 = metadata. The compositor keeps the pointer
+                // out of the pixels and delivers its REAL position through
+                // spa_meta_cursor. Without it the host cannot calibrate the
+                // relative EIS pointer, so the first injected motion carries
+                // a constant offset (the remote cursor/click lands away from
+                // the client's pointer).
+                DBusMessageIter entry, var;
+                dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, nullptr, &entry);
+                const char* kc = "cursor-mode";
+                dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &kc);
+                dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT, "u", &var);
+                uint32_t cm = 2;
+                dbus_message_iter_append_basic(&var, DBUS_TYPE_UINT32, &cm);
+                dbus_message_iter_close_container(&entry, &var);
+                dbus_message_iter_close_container(&dict, &entry);
+            }
             dbus_message_iter_close_container(&args, &dict);
             reply = dbus_connection_send_with_reply_and_block(m_impl->conn, call, 10000, &derr);
             dbus_message_unref(call);

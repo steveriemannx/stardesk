@@ -152,10 +152,36 @@ public:
     bool MoveTo(double nx, double ny, int screenW, int screenH)
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-        if (m_pointer == nullptr || !Ready()) {
+        if (!Ready()) {
             return false;
         }
         if (screenW <= 0 || screenH <= 0) {
+            return false;
+        }
+        // Preferred: an absolute EI pointer. Its region is the compositor's
+        // screen layout, so the position lands exactly where the client points
+        // with no calibration of a locally tracked cursor (the relative path
+        // below needs a calibrated base or every motion carries the offset).
+        if (m_pointerAbs != nullptr) {
+            struct ei_region* region = ei_device_get_region(m_pointerAbs, 0);
+            if (region != nullptr) {
+                const double rx = (double)ei_region_get_x(region);
+                const double ry = (double)ei_region_get_y(region);
+                const double rw = (double)ei_region_get_width(region);
+                const double rh = (double)ei_region_get_height(region);
+                if (rw > 0 && rh > 0) {
+                    const double x = rx + nx * rw;
+                    const double y = ry + ny * rh;
+                    ei_device_pointer_motion_absolute(m_pointerAbs, x, y);
+                    ei_device_frame(m_pointerAbs, ei_now(m_ei));
+                    m_cursorX = (int)x;
+                    m_cursorY = (int)y;
+                    m_cursorReset = true;
+                    return true;
+                }
+            }
+        }
+        if (m_pointer == nullptr) {
             return false;
         }
         // The tracked position is calibrated by the caller from the real
@@ -514,6 +540,7 @@ private:
             m_cursorX = 0;
             m_cursorY = 0;
             m_pointer = nullptr;
+            m_pointerAbs = nullptr;
             m_keyboard = nullptr;
             m_state.store(State::Failed);
             break;
@@ -524,6 +551,7 @@ private:
                         ei_seat_get_name(seat));
                 ei_seat_bind_capabilities(seat,
                                           EI_DEVICE_CAP_POINTER,      // relative
+                                          EI_DEVICE_CAP_POINTER_ABSOLUTE,
                                           EI_DEVICE_CAP_BUTTON,
                                           EI_DEVICE_CAP_SCROLL,
                                           EI_DEVICE_CAP_KEYBOARD,
@@ -543,6 +571,25 @@ private:
                 fprintf(stderr, "[input] EIS relative pointer device (%s)\n",
                         ei_device_get_name(dev));
             }
+            if (ei_device_has_capability(dev, EI_DEVICE_CAP_POINTER_ABSOLUTE) &&
+                m_pointerAbs == nullptr) {
+                m_pointerAbs = ei_device_ref(dev);
+                struct ei_region* region = ei_device_get_region(m_pointerAbs, 0);
+                if (region != nullptr) {
+                    fprintf(stderr,
+                            "[input] EIS absolute pointer device (%s) region %dx%d at (%d,%d)\n",
+                            ei_device_get_name(dev),
+                            (int)ei_region_get_width(region),
+                            (int)ei_region_get_height(region),
+                            (int)ei_region_get_x(region),
+                            (int)ei_region_get_y(region));
+                }
+                else {
+                    fprintf(stderr,
+                            "[input] EIS absolute pointer device (%s) without a region\n",
+                            ei_device_get_name(dev));
+                }
+            }
             if (ei_device_has_capability(dev, EI_DEVICE_CAP_KEYBOARD) &&
                 m_keyboard == nullptr) {
                 m_keyboard = ei_device_ref(dev);
@@ -556,7 +603,7 @@ private:
                 const uint32_t seq = ei_event_emulating_get_sequence(ev);
                 ei_device_start_emulating(dev, seq);
                 std::lock_guard<std::mutex> lock(m_mutex);
-                if ((dev == m_pointer || dev == m_keyboard) &&
+                if ((dev == m_pointer || dev == m_pointerAbs || dev == m_keyboard) &&
                     m_state.load() != State::Ready) {
                     m_state.store(State::Ready);
                     fprintf(stderr, "[input] EIS ready for injection\n");
@@ -758,6 +805,9 @@ private:
 
     struct ei* m_ei = nullptr;
     struct ei_device* m_pointer = nullptr;
+    // Absolute pointer device, when the compositor offers one (region = whole
+    // screen layout). Preferred for MoveTo: no cursor calibration needed.
+    struct ei_device* m_pointerAbs = nullptr;
     struct ei_device* m_keyboard = nullptr;
     int m_cursorX = 0;
     int m_cursorY = 0;

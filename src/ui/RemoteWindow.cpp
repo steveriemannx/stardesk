@@ -390,6 +390,30 @@ void RemoteWindow::OnFrameReady(int w, int h, const std::vector<uint8_t>& rgba,
     m_cacheH = h;
     UpdateDisplaySize();
 
+    // test hook: STARDESK_TEST_POINTERS=nx,ny sends one pointer move plus an
+    // absolute click at that normalized position once the first frame arrives.
+    // Used to verify the client->host absolute-pointer mapping without GUI
+    // interaction (the host logs the injected target and its cursor source).
+    if (const char* tp = std::getenv("STARDESK_TEST_POINTERS")) {
+        static bool sSent = false;
+        if (!sSent && m_session != nullptr && m_session->IsConnected() && w > 0) {
+            sSent = true;
+            double nx = 0.5, ny = 0.5;
+            std::sscanf(tp, "%lf,%lf", &nx, &ny);
+            InputEventMsg ev;
+            ev.kind = 0;
+            ev.xNorm = (uint16_t)(nx * 65535.0);
+            ev.yNorm = (uint16_t)(ny * 65535.0);
+            m_session->SendInput(ev);
+            InputEventMsg click = ev;
+            click.kind = 1;
+            click.buttons = 0x11; // bit4 = first press, bit0 = left button
+            click.flags = 1;
+            m_session->SendInput(click);
+            fprintf(stderr, "[client] test pointer sent n=(%.3f,%.3f)\n", nx, ny);
+        }
+    }
+
     // The Wayland ScreenCast stream includes the compositor's actual cursor.
     // Keep the frame untouched so the remote desktop is mirrored faithfully.
     std::vector<uint8_t> frame = rgba;
