@@ -655,6 +655,15 @@ void MainWindow::OnInitWindow()
 
     m_deviceList = new ui::VBox(this);
     m_deviceList->SetAttribute("child_margin_y", "4");
+    m_deviceList->AttachClick([this](const ui::EventArgs&) {
+        // clicking the empty area below the rows clears the selection
+        if (!m_selectedDeviceIpPort.empty()) {
+            m_selectedDeviceIpPort.clear();
+            SetLanDevices(m_lastLanDevices);
+            InvalidateAll();
+        }
+        return true;
+    });
     cardDevices->AddItem(m_deviceList);
 
     m_deviceEmptyLabel = static_cast<ThemeLabel*>(MakeLabel("file.empty", ThemeLabel::Role::Sub));
@@ -1585,7 +1594,8 @@ void MainWindow::SetLanDevices(const std::vector<std::pair<std::string, std::str
                 return true;
             }
             m_selectedDeviceIpPort = ipPort;
-            SetLanDevices(m_lastLanDevices); // repaint the selection
+            SetLanDevices(m_lastLanDevices); // rebuild the rows with the highlight
+            InvalidateAll();                 // and actually repaint them
             return true;
         });
         row->AttachDoubleClick([this, ipPort, fillFromRow](const ui::EventArgs&) {
@@ -1595,6 +1605,7 @@ void MainWindow::SetLanDevices(const std::vector<std::pair<std::string, std::str
             m_selectedDeviceIpPort = ipPort;
             fillFromRow();
             SetLanDevices(m_lastLanDevices);
+            InvalidateAll();
             return true;
         });
         m_deviceList->AddItem(row);
