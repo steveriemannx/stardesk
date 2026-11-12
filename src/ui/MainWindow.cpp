@@ -1442,7 +1442,7 @@ void MainWindow::SetLanDevices(const std::vector<std::pair<std::string, std::str
         }
 
         const std::string ipPort = nameIp.second;
-        // clicking a device only fills IP/port; connecting is explicit
+        // single click fills IP/port, double click fills and connects
         auto fillFromRow = [this, ipPort]() {
             const size_t colon = ipPort.find((':'));
             m_remoteIpEdit->SetText(ipPort.substr(0, colon));
@@ -1455,6 +1455,14 @@ void MainWindow::SetLanDevices(const std::vector<std::pair<std::string, std::str
                 return true; // managing: row clicks do not start a connection
             }
             fillFromRow();
+            return true;
+        });
+        row->AttachDoubleClick([this, fillFromRow](const ui::EventArgs&) {
+            if (m_manageDevices) {
+                return true;
+            }
+            fillFromRow();
+            OnConnectClicked();
             return true;
         });
         m_deviceList->AddItem(row);
