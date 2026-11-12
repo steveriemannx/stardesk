@@ -1,6 +1,7 @@
 #include "HostSession.h"
 
 #include "../app/AppConfig.h"
+#include "../app/InviteRegistry.h"
 #include "../app/Language.h"
 #include "../codec/FrameCodec.h"
 #include "../codec/H264Encoder.h"
@@ -148,7 +149,32 @@ void HostSession::RunImpl()
 
     // ---- 1. Hello ----
     Frame frame;
-    if (!RecvFrame(m_threadFd, frame, 10000) || frame.type != MsgType::Hello) {
+    if (!RecvFrame(m_threadFd, frame, 10000)) {
+        CloseThreadFd();
+        m_running = false;
+        if (m_cb.onClosed) m_cb.onClosed();
+        return;
+    }
+    if (frame.type == MsgType::Invite) {
+        // reverse remote assistance: a peer asks US to control IT
+        PayloadReader ir(frame.payload.data(), frame.payload.size());
+        const uint16_t hostPort = ir.GetU16();
+        uint8_t token[32] = {0};
+        ir.GetBytes(token, sizeof(token));
+        std::string inviterName;
+        ir.GetString(inviterName);
+        if (ir.Ok() && m_cb.onInvite) {
+            fprintf(stderr, "[host] invite from %s (%s:%u)\n", m_peerIp.c_str(),
+                    inviterName.c_str(), (unsigned)hostPort);
+            fflush(stderr);
+            m_cb.onInvite(m_peerIp, hostPort, inviterName, token);
+        }
+        CloseThreadFd();
+        m_running = false;
+        if (m_cb.onClosed) m_cb.onClosed();
+        return;
+    }
+    if (frame.type != MsgType::Hello) {
         CloseThreadFd();
         m_running = false;
         if (m_cb.onClosed) m_cb.onClosed();
@@ -174,13 +200,26 @@ void HostSession::RunImpl()
     if (r.Ok() && r.Remaining() >= 1) {
         m_peerHideCursor = r.GetU8() != 0;
     }
+    bool inviteGranted = false;
+    if (r.Ok() && r.Remaining() >= 33) {
+        const uint8_t hasToken = r.GetU8();
+        if (hasToken != 0) {
+            uint8_t token[32] = {0};
+            r.GetBytes(token, sizeof(token));
+            if (r.Ok() && InviteRegistry::Instance().Consume(m_peerIp, token)) {
+                inviteGranted = true;
+                fprintf(stderr, "[host] invite token accepted from %s\n", m_peerIp.c_str());
+                fflush(stderr);
+            }
+        }
+    }
 
     const AppConfig& cfg = App::Instance().Config();
     const std::string password = ui::StringConvert::TToUTF8(cfg.password);
 
     // tell the client a manual-accept dialog is showing
-    bool manualGranted = false;
-    if (cfg.manualAccept) {
+    bool manualGranted = inviteGranted;
+    if (cfg.manualAccept && !inviteGranted) {
         PayloadWriter w;
         w.PutString(ui::StringConvert::TToUTF8(App::GetHostName()));
         SendFrame(m_threadFd, MsgType::AcceptRequest, w.Result());

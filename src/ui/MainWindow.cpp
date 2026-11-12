@@ -1,11 +1,15 @@
 #include "MainWindow.h"
 
 #include "AddDeviceWindow.h"
+#include "InviteWindow.h"
 #include "../app/AppConfig.h"
+#include "../app/InviteRegistry.h"
 #include "../app/Language.h"
 #include "../app/Theme.h"
 #include "../TextProbe.h"
+#include "../net/Protocol.h"
 #include "../net/Socket.h"
+#include "../net/TcpClient.h"
 #include "../platform/InputInject.h"
 #include "../ui/AskWindow.h"
 
@@ -17,6 +21,10 @@
 #include "../ui/SettingsWindow.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <cstring>
+#include <random>
+#include <array>
 #include <vector>
 #include <functional>
 #include <memory>
@@ -594,6 +602,24 @@ void MainWindow::OnInitWindow()
         ToggleManageDevices();
         return true;
     });
+    PillButton* inviteBtn = new PillButton(this);
+    inviteBtn->SetAttribute("width", "auto");
+    inviteBtn->SetAttribute("padding", "10,0,10,0");
+    inviteBtn->SetAttribute("height", "22");
+    m_lang.SetText(inviteBtn, "client.requestHelp");
+    m_lang.BindToolTip(inviteBtn, "client.requestHelpHint");
+    inviteBtn->AttachClick([this](const ui::EventArgs&) {
+        if (m_selectedDeviceIpPort.empty()) {
+            m_connStatusLabel->SetRole(ThemeLabel::Role::Sub);
+            m_connStatusLabel->SetText(SDK_TR("client.selectDeviceFirst"));
+        }
+        else {
+            SendInvite(m_selectedDeviceIpPort);
+        }
+        return true;
+    });
+    devicesHead->AddItem(inviteBtn);
+
     PillButton* addDeviceBtn = new PillButton(this);
     addDeviceBtn->SetAttribute("width", "auto");
     addDeviceBtn->SetAttribute("padding", "10,0,10,0");
@@ -886,6 +912,42 @@ void MainWindow::OnInitWindow()
             dlg->SetWindowForeground();
         }));
     };
+    hostCb.onInvite = [this](const std::string& ip, uint16_t port, const std::string& name,
+                             const uint8_t token[32]) {
+        PostToUI(ui::UiBind(this, [this, ip, port, name,
+                                   tokenArr = [&]() {
+                                       std::array<uint8_t, 32> a{};
+                                       std::memcpy(a.data(), token, 32);
+                                       return a;
+                                   }()]() {
+            auto acceptInvite = [this, ip, port, tokenArr]() {
+                std::memcpy(m_inviteToken, tokenArr.data(), 32);
+                m_useInviteToken = true;
+                m_remoteIpEdit->SetText(ip);
+                m_remotePortEdit->SetText(std::to_string(port));
+                m_connStatusLabel->SetRole(ThemeLabel::Role::Sub);
+                m_connStatusLabel->SetText(SDK_TR("client.inviteAccepted"));
+                OnConnectClicked();
+            };
+            if (std::getenv("STARDESK_AUTO_ACCEPT_INVITE") != nullptr) {
+                fprintf(stderr, "[invite] auto-accept from %s\n", ip.c_str());
+                fflush(stderr);
+                std::thread([acceptInvite]() {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                    acceptInvite();
+                }).detach();
+                return;
+            }
+            InviteWindow* dlg = new InviteWindow(name, ip, false, [acceptInvite](bool accept) {
+                if (accept) {
+                    acceptInvite();
+                }
+            });
+            dlg->CreateWnd(this, ui::WindowCreateParam("StarDesk", true));
+            dlg->ShowWindow(ui::kSW_SHOW_NORMAL);
+            dlg->SetWindowForeground();
+        }));
+    };
     hostCb.onClosed = []() {
         // host status is restored by onStatus in HostSession::Run
     };
@@ -959,6 +1021,15 @@ void MainWindow::OnInitWindow()
     SetLocalAddresses(ips);
 
     BaseClass::OnInitWindow();
+
+    // test hook: STARDESK_TEST_SEND_INVITE=ip:port sends an assistance invitation
+    if (const char* inv = std::getenv("STARDESK_TEST_SEND_INVITE")) {
+        const std::string invTarget = inv;
+        std::thread([this, invTarget]() {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1200));
+            PostToUI(ui::UiBind(this, [this, invTarget]() { SendInvite(invTarget); }));
+        }).detach();
+    }
 
     // test hook: STARDESK_AUTO_HOST[+_PORT+_PASSWORD] (or config auto_host)
     // connects automatically so fps/latency can be measured without GUI clicks
@@ -1055,6 +1126,11 @@ void MainWindow::OnConnectClicked()
         PostToUI(ui::UiBind(this, [this, st, text]() { OnClientState(st, text); }));
     };
 
+    if (m_useInviteToken) {
+        opt.useInvite = true;
+        std::memcpy(opt.inviteToken, m_inviteToken, sizeof(opt.inviteToken));
+        m_useInviteToken = false; // one-time: the next manual connect uses the password
+    }
     m_client = std::make_unique<ClientSession>(opt, std::move(cb));
     // stays clickable: pressing it again cancels the attempt
     m_connectBtn->SetText(SDK_TR("client.cancelConnect"));
@@ -1333,6 +1409,59 @@ void MainWindow::SetLocalAddresses(const std::vector<std::string>& ips)
     }
     m_localAddresses = ips;
     m_addrLabel->SetText(text);
+}
+
+void MainWindow::SendInvite(const std::string& ipPort)
+{
+    // reverse remote assistance: ask the peer at ipPort to control THIS machine
+    const size_t colon = ipPort.find(':');
+    if (colon == std::string::npos) {
+        m_connStatusLabel->SetRole(ThemeLabel::Role::Danger);
+        m_connStatusLabel->SetText(SDK_TR("client.selectDeviceFirst"));
+        return;
+    }
+    const std::string ip = ipPort.substr(0, colon);
+    const uint16_t port =
+        (uint16_t)std::max(1, std::min(65535, std::atoi(ipPort.substr(colon + 1).c_str())));
+
+    uint8_t token[32];
+    std::random_device rd;
+    for (size_t i = 0; i < sizeof(token); ++i) {
+        token[i] = (uint8_t)(rd() & 0xFF);
+    }
+    InviteRegistry::Instance().Add(ip, port, token, 120);
+
+    // one-shot connection: send the invitation and close
+    std::thread([this, ip, port,
+                 tokenArr = [&]() {
+                     std::array<uint8_t, 32> a{};
+                     std::memcpy(a.data(), token, 32);
+                     return a;
+                 }()]() {
+        Socket::sock_t fd = TcpClient::ConnectTo(ip, port, 4000);
+        if (fd == Socket::kInvalid) {
+            PostToUI(ui::UiBind(this, [this]() {
+                m_connStatusLabel->SetRole(ThemeLabel::Role::Danger);
+                m_connStatusLabel->SetText(SDK_TR("client.networkError"));
+            }));
+            return;
+        }
+        PayloadWriter w;
+        w.PutU16(m_actualPort);
+        w.PutBytes(tokenArr.data(), (uint32_t)tokenArr.size());
+        w.PutString(ui::StringConvert::TToUTF8(App::Instance().Config().deviceName));
+        SendFrame(fd, MsgType::Invite, w.Result());
+        Socket::Close(fd);
+        PostToUI(ui::UiBind(this, [this, ip]() {
+            m_connStatusLabel->SetRole(ThemeLabel::Role::Sub);
+            m_connStatusLabel->SetText(SDK_TR("client.inviteSent"));
+            fprintf(stderr, "[invite] sent to %s, waiting for the peer to accept\n", ip.c_str());
+            fflush(stderr);
+        }));
+    }).detach();
+
+    m_connStatusLabel->SetRole(ThemeLabel::Role::Sub);
+    m_connStatusLabel->SetText(SDK_TR("client.inviteSent"));
 }
 
 void MainWindow::SetLanDevices(const std::vector<std::pair<std::string, std::string>>& nameIpPorts)
@@ -1726,6 +1855,13 @@ LRESULT MainWindow::OnPaintMsg(const ui::UiRect& rcPaint, const ui::NativeMsg& n
                     m_selectedDeviceIpPort = selDevice;
                     SetLanDevices(m_lastLanDevices);
                     InvalidateAll();
+                }
+                if (std::getenv("STARDESK_UI_SHOT_INVITE") != nullptr) {
+                    InviteWindow* dlg = new InviteWindow("Linux 测试", "192.168.137.148", false,
+                                                         [](bool) {});
+                    dlg->CreateWnd(this, ui::WindowCreateParam("StarDesk", true));
+                    dlg->ShowWindow(ui::kSW_SHOW_NORMAL);
+                    dlg->SetWindowForeground();
                 }
                 if (std::getenv("STARDESK_UI_SHOT_ADDDEVICE") != nullptr) {
                     AddDeviceWindow* dlg = new AddDeviceWindow(

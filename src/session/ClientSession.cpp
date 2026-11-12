@@ -348,6 +348,10 @@ void ClientSession::RunImpl()
         // 1 = hide the remote cursor in the stream (local-cursor mode) -
         // Wayland embedded hosts re-capture with cursor_mode=1 (hidden)
         w.PutU8(App::Instance().Config().cursorMode == 0 ? 1 : 0);
+        if (m_opt.useInvite) {
+            w.PutU8(1);
+            w.PutBytes(m_opt.inviteToken, sizeof(m_opt.inviteToken));
+        }
         if (!SendFrame(m_fd, MsgType::Hello, w.Result())) {
             FailNet(SDK_TR("client.networkError"));
             return;

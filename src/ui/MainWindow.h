@@ -50,6 +50,10 @@ public:
     /** Refresh the LAN device discovery list. */
     /** Selected LAN/manual device row (click to select, double-click to fill). */
     std::string m_selectedDeviceIpPort;
+    /** Reverse remote-assistance: token handed to the peer in the invitation. */
+    uint8_t m_inviteToken[32] = {0};
+    bool m_useInviteToken = false;
+    void SendInvite(const std::string& ipPort);
 
     void SetLanDevices(const std::vector<std::pair<std::string, std::string>>& nameIpPorts);
 

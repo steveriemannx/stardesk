@@ -58,6 +58,11 @@ enum class MsgType : uint8_t {
                        // AV1 - keyframes are self-contained). Sent once (and
                        // on size change) before VideoFrames.
     VideoFrame = 23,   // one encoded frame: codec-specific payload
+    Invite = 40,       // reverse remote-assistance invitation: a potential HOST
+                       // asks a peer to control it. Payload: {u16 hostPort,
+                       // 32-byte one-time token, u16 nameLen, name}. The peer
+                       // shows a confirmation and connects back to hostPort
+                       // with the token in its Hello (no password needed).
     CodecSwitch = 24,  // client->host: {u8 codec} switch the stream codec live
                        // (host re-sends VideoInit for the new codec)
                        // (H.264: AVCC NALs; VP9/AV1: one raw frame). Each
