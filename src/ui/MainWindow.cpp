@@ -599,7 +599,7 @@ void MainWindow::OnInitWindow()
         // ellipsize instead of moving the fields).
         l->SetAttribute("width", "140");
         l->SetAttribute("height", "stretch");
-        l->SetAttribute("text_align", "right,vcenter");
+        l->SetAttribute("text_align", "left,vcenter");
         l->SetAttribute("margin", "0,0,8,0");
         return l;
     };
