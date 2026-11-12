@@ -33,6 +33,7 @@ public:
     void ApplyLanguage();
 
 private:
+    ui::HBox* m_caption = nullptr;
     LangBinder m_lang;
     PillButton* MakePill(const char* key);
 

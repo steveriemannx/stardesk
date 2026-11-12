@@ -158,6 +158,7 @@ void RemoteWindow::OnInitWindow()
 
     // ---- caption ----
     ui::HBox* caption = new ui::HBox(this);
+    m_caption = caption;
     // macOS: name it as the dui caption bar so WindowImplBase adds the
     // self-drawn traffic lights (close/minimize/zoom) on this window too.
     caption->SetAttribute("name", "window_caption_bar");
@@ -927,6 +928,23 @@ void RemoteWindow::ToggleFullscreen()
     }
 }
 
+void RemoteWindow::OnPreCloseWindow()
+{
+    // notify the owner before the window goes away: the main window must drop
+    // its pointer here, otherwise a click on its button right after the close
+    // would touch a destroyed window (crash on "close then connect").
+    if (m_onClosed) {
+        std::function<void()> closedCallback = std::move(m_onClosed);
+        m_onClosed = nullptr;
+        closedCallback();
+    }
+    if (m_session) {
+        m_session->Stop();
+        m_session.reset();
+    }
+    BaseClass::OnPreCloseWindow();
+}
+
 void RemoteWindow::Disconnect()
 {
     if (m_disconnecting) {
@@ -952,6 +970,9 @@ void RemoteWindow::Disconnect()
 
 void RemoteWindow::ApplyTheme()
 {
+    if (m_caption != nullptr) {
+        m_caption->SetBkColor(Theme::Get().captionBg);
+    }
     const Palette& p = Theme::Get();
     ui::VBox* root = dynamic_cast<ui::VBox*>(GetRoot());
     if (root != nullptr) {

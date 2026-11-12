@@ -76,6 +76,7 @@ void AskWindow::OnInitWindow()
 
     // caption
     ui::HBox* caption = new ui::HBox(this);
+    m_caption = caption;
     // macOS self-drawn traffic lights (see RemoteWindow)
     caption->SetAttribute("name", "window_caption_bar");
     caption->SetAttribute("height", "32");
@@ -157,6 +158,9 @@ void AskWindow::OnInitWindow()
 
 void AskWindow::ApplyTheme()
 {
+    if (m_caption != nullptr) {
+        m_caption->SetBkColor(Theme::Get().captionBg);
+    }
     const Palette& p = Theme::Get();
     ui::VBox* root = dynamic_cast<ui::VBox*>(GetRoot());
     if (root != nullptr) {

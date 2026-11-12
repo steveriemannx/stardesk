@@ -27,6 +27,7 @@ public:
     virtual std::string GetSkinFile() override;
     virtual void GetCreateWindowAttributes(ui::WindowCreateAttributes& attrs) override;
     virtual void OnInitWindow() override;
+    virtual void OnPreCloseWindow() override;
 
     virtual void OnThemeChanged() override { ApplyTheme(); }
     virtual void OnLanguageChanged() override { ApplyLanguage(); }
@@ -43,6 +44,7 @@ public:
     void SetClosedCallback(std::function<void()> cb) { m_onClosed = std::move(cb); }
 
 private:
+    ui::HBox* m_caption = nullptr;
     LangBinder m_lang;
     void UpdateCursorPillText();
     void ToggleFullscreen();

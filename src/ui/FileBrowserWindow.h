@@ -79,6 +79,7 @@ class FileBrowserWindow : public ui::WindowImplBase, public IAppListener
     std::vector<RowInfo> m_rows;
 
 private:
+    ui::HBox* m_caption = nullptr;
     LangBinder m_lang;
     struct Entry {
         std::string name;

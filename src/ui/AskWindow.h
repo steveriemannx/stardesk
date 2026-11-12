@@ -34,6 +34,7 @@ public:
     void ApplyLanguage();
 
 private:
+    ui::HBox* m_caption = nullptr;
     LangBinder m_lang;
     AskInfo m_info;
     ResultCb m_cb;

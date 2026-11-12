@@ -51,6 +51,7 @@ public:
     void SetLanDevices(const std::vector<std::pair<std::string, std::string>>& nameIpPorts);
 
 private:
+    ui::HBox* m_caption = nullptr;
     // ---- construction helpers ----
     ui::Label* MakeLabel(const char* key, ThemeLabel::Role role);
     ui::RichEdit* MakeEdit(const char* promptKey, bool password);

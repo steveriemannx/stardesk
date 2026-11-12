@@ -114,7 +114,6 @@ ui::RichEdit* MainWindow::MakeEdit(const char* promptKey, bool password)
 {
     ui::RichEdit* edit = new ui::RichEdit(this);
     m_lang.BindPrompt(edit, promptKey);
-    edit->SetAttribute("prompt_color", Theme::Hex(Theme::Get().textSub));
     edit->SetAttribute("single_line", "true");
     edit->SetAttribute("font", "system_12");
     edit->SetAttribute("text_align", "left,vcenter");
@@ -141,7 +140,9 @@ void MainWindow::SetEditBk(ui::RichEdit* edit)
     edit->SetAttribute("border_size", "1");
     edit->SetAttribute("border_color", Theme::Hex(p.border));
     edit->SetAttribute("border_round", "4,4");
-    edit->SetAttribute("textcolor", Theme::Hex(p.textMain));
+    edit->SetAttribute("text_color", "sd_text_main");
+    edit->SetAttribute("normal_text_color", "sd_text_main");
+    edit->SetAttribute("prompt_color", "sd_text_sub");
 }
 
 PillButton* MainWindow::MakePill(const char* key)
@@ -198,6 +199,7 @@ void MainWindow::OnInitWindow()
 
     // ---- caption bar ----
     ui::HBox* caption = new ui::HBox(this);
+    m_caption = caption;
     caption->SetAttribute("name", "window_caption_bar");
     caption->SetAttribute("height", "36");
     caption->SetBkColor(p.captionBg);
@@ -1026,8 +1028,8 @@ void MainWindow::OnClientState(ClientSession::State state, const std::string& te
             RemoteWindow* rw = new RemoteWindow(std::move(m_client));
             m_remoteWin = rw;
             rw->SetClosedCallback([this]() {
+                m_remoteWin = nullptr; // synchronous: do not leave a stale pointer
                 PostToUI(ui::UiBind(this, [this]() {
-                    m_remoteWin = nullptr;
                     m_connectBtn->SetText(SDK_TR("client.connect"));
                     m_connectBtn->SetDangerLook(false);
                     m_connectBtn->SetEnabled(true);
@@ -1444,6 +1446,9 @@ void MainWindow::ApplyThemeEdits()
 
 void MainWindow::ApplyTheme()
 {
+    if (m_caption != nullptr) {
+        m_caption->SetBkColor(Theme::Get().captionBg);
+    }
     const Palette& p = Theme::Get();
     ui::VBox* root = dynamic_cast<ui::VBox*>(GetRoot());
     if (root != nullptr) {
@@ -1536,6 +1541,37 @@ LRESULT MainWindow::OnPaintMsg(const ui::UiRect& rcPaint, const ui::NativeMsg& n
     // short delay so dialogs/second windows exist; optional test hooks:
     //   STARDESK_UI_SHOT_TAB=file   select the file tab first
     //   STARDESK_UI_SHOT_TYPE=1     type a password into the remote field first
+    // developer test: close the remote view and connect again (crash repro)
+    static bool sReconnectTestScheduled = false;
+    if (!sReconnectTestScheduled && std::getenv("STARDESK_TEST_RECONNECT") != nullptr) {
+        sReconnectTestScheduled = true;
+        std::thread([this]() {
+            std::this_thread::sleep_for(std::chrono::milliseconds(4000));
+            PostToUI(ui::UiBind(this, [this]() {
+                fprintf(stderr, "[test] step1: close remote window (ptr=%p)\n", (void*)m_remoteWin);
+                if (m_remoteWin != nullptr) {
+                    m_remoteWin->CloseWnd();
+                }
+            }));
+            std::this_thread::sleep_for(std::chrono::milliseconds(1200));
+            PostToUI(ui::UiBind(this, [this]() {
+                fprintf(stderr, "[test] step2: click connect, ptr=%p\n", (void*)m_remoteWin);
+                OnConnectClicked();
+            }));
+            std::this_thread::sleep_for(std::chrono::milliseconds(4000));
+            PostToUI(ui::UiBind(this, [this]() {
+                fprintf(stderr, "[test] step3: close remote again, ptr=%p\n", (void*)m_remoteWin);
+                if (m_remoteWin != nullptr) {
+                    m_remoteWin->CloseWnd();
+                }
+            }));
+            std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+            fprintf(stderr, "[test] reconnect test finished without crash\n");
+            fflush(stderr);
+            std::_Exit(0);
+        }).detach();
+    }
+
     static bool sCaptured = false;
     static bool sKickScheduled = false;
     static bool sKickDone = false;
@@ -1548,6 +1584,9 @@ LRESULT MainWindow::OnPaintMsg(const ui::UiRect& rcPaint, const ui::NativeMsg& n
         std::thread([this]() {
             std::this_thread::sleep_for(std::chrono::milliseconds(3200));
             PostToUI(ui::UiBind(this, [this]() {
+                if (std::getenv("STARDESK_UI_SHOT_DARK") != nullptr) {
+                    App::Instance().SetTheme(true);
+                }
                 if (const char* shotLang = std::getenv("STARDESK_UI_SHOT_LANG")) {
                     App::Instance().SetLanguage((Lang)std::atoi(shotLang));
                 }

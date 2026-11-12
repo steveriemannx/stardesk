@@ -114,6 +114,7 @@ void FileBrowserWindow::OnInitWindow()
 
     // caption
     ui::HBox* caption = new ui::HBox(this);
+    m_caption = caption;
     // macOS self-drawn traffic lights (see RemoteWindow)
     caption->SetAttribute("name", "window_caption_bar");
     caption->SetAttribute("height", "32");
@@ -383,6 +384,9 @@ void FileBrowserWindow::OnInitWindow()
 
 void FileBrowserWindow::ApplyTheme()
 {
+    if (m_caption != nullptr) {
+        m_caption->SetBkColor(Theme::Get().captionBg);
+    }
     if (m_root != nullptr) {
         m_root->SetBkColor(Theme::Get().windowBg);
     }
