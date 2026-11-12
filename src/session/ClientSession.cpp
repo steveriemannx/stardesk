@@ -355,13 +355,24 @@ void ClientSession::RunImpl()
     }
 
     // ---- wait for challenge (host may show a manual-accept dialog first) ----
+    // The connect/handshake phase has a hard deadline so a host that accepts
+    // TCP but never answers cannot leave the UI stuck on "connecting" forever.
+    auto phaseDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(8);
     Frame frame;
     while (m_running) {
-        if (!RecvFrame(m_fd, frame, 15000)) {
-            FailNet(SDK_TR("client.networkError"));
-            return;
+        if (!RecvFrame(m_fd, frame, 500)) {
+            if (std::chrono::steady_clock::now() > phaseDeadline) {
+                SetState(State::Failed, SDK_TR("client.timeout"));
+                m_running = false;
+                Socket::Close(m_fd);
+                m_fd = Socket::kInvalid;
+                return;
+            }
+            continue;
         }
         if (frame.type == MsgType::AcceptRequest) {
+            // a manual-accept dialog is waiting for the remote user: allow longer
+            phaseDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(120);
             SetState(State::WaitingAccept, SDK_TR("client.waitingAccept"));
             continue;
         }
@@ -406,7 +417,16 @@ void ClientSession::RunImpl()
     // ---- AuthResult ----
     {
         Frame result;
-        if (!RecvFrame(m_fd, result, 10000) || result.type != MsgType::AuthResult) {
+        while (m_running) {
+            if (RecvFrame(m_fd, result, 500)) {
+                break;
+            }
+            if (std::chrono::steady_clock::now() > phaseDeadline) {
+                FailNet(SDK_TR("client.timeout"));
+                return;
+            }
+        }
+        if (!m_running || result.type != MsgType::AuthResult) {
             FailNet(SDK_TR("client.networkError"));
             return;
         }

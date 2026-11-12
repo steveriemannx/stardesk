@@ -1000,8 +1000,9 @@ void MainWindow::OnConnectClicked()
     };
 
     m_client = std::make_unique<ClientSession>(opt, std::move(cb));
-    m_connectBtn->SetText(SDK_TR("client.connecting"));
-    m_connectBtn->SetEnabled(false);
+    // stays clickable: pressing it again cancels the attempt
+    m_connectBtn->SetText(SDK_TR("client.cancelConnect"));
+    m_connectBtn->SetEnabled(true);
     m_connStatusLabel->SetRole(ThemeLabel::Role::Sub);
     m_connStatusLabel->SetText(SDK_TR("client.connecting"));
     m_client->Start();
