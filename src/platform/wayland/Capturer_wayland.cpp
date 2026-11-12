@@ -740,6 +740,23 @@ void PwOnProcess(void* data)
     }
 
     if (d->type == SPA_DATA_DmaBuf) {
+        // Mutter alternates linear (modifier 0) and tiled buffers on intel
+        // hardware. The tiled ones are unreliable in this pipeline: EGL
+        // readback comes back black or the image is row-swizzled (it can pass
+        // the variance probe and then visibly shifts/slices the picture, which
+        // the user sees as the remote window "shaking"). Only linear buffers
+        // can be read back correctly, so drop the tiled ones.
+        if (impl->drmModifier != 0) {
+            static uint32_t sTiledCast = 0;
+            if ((++sTiledCast & 0x3F) == 1) {
+                fprintf(stderr,
+                        "[capture] dropping tiled DMA-BUF (modifier=%llu, %u so far)\n",
+                        (unsigned long long)impl->drmModifier, sTiledCast);
+                fflush(stderr);
+            }
+            pw_stream_queue_buffer(impl->stream, pwb);
+            return;
+        }
         // Try EGL import first (GPU-side readback, fast ~60fps). Falls back to
         // mmap CPU readback when EGL is unavailable or the import fails (e.g.
         // tiled buffers on NVIDIA). The env var STARDESK_EGL_READBACK=0 forces
@@ -2196,14 +2213,69 @@ bool Capturer::SetupPipewire()
         }
     }
 
-    // 6. connect the stream to the portal node
-    if (pw_stream_connect(m_impl->stream, PW_DIRECTION_INPUT, m_impl->nodeId,
-                          (pw_stream_flags)(PW_STREAM_FLAG_AUTOCONNECT |
-                                            PW_STREAM_FLAG_MAP_BUFFERS),
-                          nullptr, 0) < 0) {
-        m_impl->error = "pw_stream_connect failed";
-        Stop();
-        return false;
+    // 6. connect the stream to the portal node.
+    // Ask for CPU-readable MemFd buffers: mutter's DMA-BUF export on this
+    // (intel) host uses tiled modifiers, which the EGL readback path returns
+    // black or row-swizzled (the visible "shaking" picture) and mmap cannot
+    // read at all. MemFd buffers are linear by definition and copy straight to
+    // RGBA in the callback. The DMA-BUF paths stay as a fallback for
+    // compositors that ignore the buffer request.
+    uint8_t podBuf[2048];
+    struct spa_pod_builder pb;
+    spa_pod_builder_init(&pb, podBuf, sizeof(podBuf));
+    const struct spa_pod* connectParams[2] = {nullptr, nullptr};
+    {
+        struct spa_pod_frame f;
+        spa_pod_builder_push_object(&pb, &f, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
+        spa_pod_builder_add(&pb,
+                            SPA_FORMAT_mediaType, SPA_POD_Id(SPA_MEDIA_TYPE_video),
+                            SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
+                            SPA_FORMAT_VIDEO_format, SPA_POD_Id(SPA_VIDEO_FORMAT_BGRx),
+                            0);
+        connectParams[0] = (const struct spa_pod*)spa_pod_builder_pop(&pb, &f);
+    }
+    {
+        struct spa_pod_frame f;
+        spa_pod_builder_push_object(&pb, &f, SPA_TYPE_OBJECT_ParamBuffers,
+                                    SPA_PARAM_Buffers);
+        spa_pod_builder_add(&pb,
+                            SPA_PARAM_BUFFERS_buffers,
+                            SPA_POD_CHOICE_RANGE_Int(4, 2, 16),
+                            SPA_PARAM_BUFFERS_dataType,
+                            SPA_POD_CHOICE_FLAGS_Int(1 << SPA_DATA_MemFd),
+                            0);
+        connectParams[1] = (const struct spa_pod*)spa_pod_builder_pop(&pb, &f);
+    }
+    pw_stream_flags flags = (pw_stream_flags)(PW_STREAM_FLAG_AUTOCONNECT |
+                                              PW_STREAM_FLAG_MAP_BUFFERS);
+    int connectRes = -1;
+    if (connectParams[0] != nullptr && connectParams[1] != nullptr) {
+        connectRes = pw_stream_connect(m_impl->stream, PW_DIRECTION_INPUT, m_impl->nodeId,
+                                       flags, connectParams, 2);
+    }
+    if (connectRes < 0) {
+        // compositor rejected the MemFd request: connect unconstrained and use
+        // the DMA-BUF paths (tiled buffers are dropped there, never read with
+        // mmap)
+        fprintf(stderr, "[capture] MemFd buffer request rejected, retrying unconstrained\n");
+        fflush(stderr);
+        m_impl->stream = pw_stream_new(m_impl->core, "stardesk-capture",
+            pw_properties_new(PW_KEY_MEDIA_TYPE, "Video",
+                              PW_KEY_MEDIA_CATEGORY, "Capture",
+                              PW_KEY_MEDIA_ROLE, "Screen", nullptr));
+        if (m_impl->stream == nullptr) {
+            m_impl->error = "pw_stream_new failed";
+            Stop();
+            return false;
+        }
+        pw_stream_add_listener(m_impl->stream, &m_impl->streamListener,
+                               &s_pwEvents, m_impl.get());
+        if (pw_stream_connect(m_impl->stream, PW_DIRECTION_INPUT, m_impl->nodeId,
+                              flags, nullptr, 0) < 0) {
+            m_impl->error = "pw_stream_connect failed";
+            Stop();
+            return false;
+        }
     }
     // reserve room for the cursor metadata (spa_meta_cursor + bitmap for a
     // 256x256 ARGB cursor); the pod is applied in PwOnParamChanged once the

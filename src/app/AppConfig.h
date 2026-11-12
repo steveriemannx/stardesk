@@ -23,7 +23,7 @@ struct AppConfig {
     std::string receiveDir;        // folder for received files (empty = default)
     bool darkTheme = false; // light by default
     int language = 0;          // index into sdk::Language
-    int wantFps = 30;          // default client frame-rate request (24/30/60)
+    int wantFps = 60;          // default client frame-rate request (24/30/60)
     int wantRes = 0;           // default client resolution request (0=original 1=720p 2=1080p)
     bool viewOnly = false;     // default client mode: false=control, true=view only
     int cursorMode = 0;            // 0=local, 1=both, 2=remote
