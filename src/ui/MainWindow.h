@@ -48,6 +48,9 @@ public:
     void SetLocalAddresses(const std::vector<std::string>& ips);
 
     /** Refresh the LAN device discovery list. */
+    /** Selected LAN/manual device row (click to select, double-click to fill). */
+    std::string m_selectedDeviceIpPort;
+
     void SetLanDevices(const std::vector<std::pair<std::string, std::string>>& nameIpPorts);
 
 private:

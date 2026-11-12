@@ -1442,7 +1442,7 @@ void MainWindow::SetLanDevices(const std::vector<std::pair<std::string, std::str
         }
 
         const std::string ipPort = nameIp.second;
-        // single click fills IP/port, double click fills and connects
+        // single click selects, double click fills IP/port (never connects)
         auto fillFromRow = [this, ipPort]() {
             const size_t colon = ipPort.find((':'));
             m_remoteIpEdit->SetText(ipPort.substr(0, colon));
@@ -1450,19 +1450,22 @@ void MainWindow::SetLanDevices(const std::vector<std::pair<std::string, std::str
                 m_remotePortEdit->SetText(ipPort.substr(colon + 1));
             }
         };
-        row->AttachClick([this, fillFromRow](const ui::EventArgs&) {
-            if (m_manageDevices) {
-                return true; // managing: row clicks do not start a connection
-            }
-            fillFromRow();
-            return true;
-        });
-        row->AttachDoubleClick([this, fillFromRow](const ui::EventArgs&) {
+        row->SetSelected(ipPort == m_selectedDeviceIpPort);
+        row->AttachClick([this, ipPort](const ui::EventArgs&) {
             if (m_manageDevices) {
                 return true;
             }
+            m_selectedDeviceIpPort = ipPort;
+            SetLanDevices(m_lastLanDevices); // repaint the selection
+            return true;
+        });
+        row->AttachDoubleClick([this, ipPort, fillFromRow](const ui::EventArgs&) {
+            if (m_manageDevices) {
+                return true;
+            }
+            m_selectedDeviceIpPort = ipPort;
             fillFromRow();
-            OnConnectClicked();
+            SetLanDevices(m_lastLanDevices);
             return true;
         });
         m_deviceList->AddItem(row);
@@ -1718,6 +1721,11 @@ LRESULT MainWindow::OnPaintMsg(const ui::UiRect& rcPaint, const ui::NativeMsg& n
             PostToUI(ui::UiBind(this, [this]() {
                 if (std::getenv("STARDESK_UI_SHOT_DARK") != nullptr) {
                     App::Instance().SetTheme(true);
+                }
+                if (const char* selDevice = std::getenv("STARDESK_UI_SHOT_SELECT_DEVICE")) {
+                    m_selectedDeviceIpPort = selDevice;
+                    SetLanDevices(m_lastLanDevices);
+                    InvalidateAll();
                 }
                 if (std::getenv("STARDESK_UI_SHOT_ADDDEVICE") != nullptr) {
                     AddDeviceWindow* dlg = new AddDeviceWindow(

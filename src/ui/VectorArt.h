@@ -139,6 +139,12 @@ class CardHBox : public ui::HBox
 public:
     explicit CardHBox(ui::Window* pWindow);
     virtual void Paint(ui::IRender* pRender, const ui::UiRect& rcPaint) override;
+
+    /** Selected row: highlighted background + accent border. */
+    void SetSelected(bool selected) { m_selected = selected; }
+
+private:
+    bool m_selected = false;
 };
 
 /** A label whose text color is picked from the theme at paint time by role,

@@ -425,9 +425,10 @@ void CardHBox::Paint(ui::IRender* pRender, const ui::UiRect& rcPaint)
     const Palette& p = Theme::Get();
     const ui::UiRect rc = GetRect();
     const bool hot = GetState() == ui::kControlStateHot;
-    pRender->FillRoundRect(UiRectF::MakeFromRect(rc), 10.0f, 10.0f,
-                           hot ? p.listHover : p.panelBg, 255);
-    pRender->DrawRoundRect(UiRectF::MakeFromRect(rc), 10.0f, 10.0f, p.border, 1.0f);
+    const ui::UiColor fill = m_selected ? p.listSelected : (hot ? p.listHover : p.panelBg);
+    pRender->FillRoundRect(UiRectF::MakeFromRect(rc), 10.0f, 10.0f, fill, 255);
+    pRender->DrawRoundRect(UiRectF::MakeFromRect(rc), 10.0f, 10.0f,
+                           m_selected ? p.accent : p.border, m_selected ? 1.5f : 1.0f);
     BaseClass::Paint(pRender, rcPaint);
 }
 
