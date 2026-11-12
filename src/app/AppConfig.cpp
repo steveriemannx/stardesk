@@ -178,6 +178,23 @@ void AppConfig::Load()
             cursorMode = 0;
         }
         deviceName = getStr("device_name");
+        hiddenDevices.clear();
+        {
+            const std::string packed = ui::StringConvert::TToUTF8(getStr("hidden_devices"));
+            size_t pos = 0;
+            while (pos < packed.size()) {
+                const size_t sep = packed.find(';', pos);
+                const std::string item =
+                    packed.substr(pos, sep == std::string::npos ? std::string::npos : sep - pos);
+                if (!item.empty()) {
+                    hiddenDevices.push_back(ui::StringConvert::UTF8ToT(item));
+                }
+                if (sep == std::string::npos) {
+                    break;
+                }
+                pos = sep + 1;
+            }
+        }
         headless = getInt("headless", 0) != 0;
         autoHost = getStr("auto_host");
         autoPort = getInt("auto_port", 0);
@@ -232,6 +249,16 @@ void AppConfig::Save() const
     add(ui::StringUtil::Printf("view_only=%d\n", viewOnly ? 1 : 0));
     add(ui::StringUtil::Printf("cursor_mode=%d\n", cursorMode));
     add("device_name="); add(deviceName); add("\n");
+    {
+        std::string packed;
+        for (size_t i = 0; i < hiddenDevices.size(); ++i) {
+            if (i > 0) {
+                packed += ";";
+            }
+            packed += ui::StringConvert::TToUTF8(hiddenDevices[i]);
+        }
+        add("hidden_devices="); add(packed); add("\n");
+    }
     add(ui::StringUtil::Printf("headless=%d\n", headless ? 1 : 0));
     ui::FileUtil::WriteFileData(path, data);
 }

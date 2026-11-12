@@ -1,5 +1,8 @@
 #include "TextProbe.h"
 
+#include "app/AppConfig.h"
+#include "app/Language.h"
+
 #include "dui/dui.h"
 #include "dui/RenderSkia/HorizontalDrawText.h"
 

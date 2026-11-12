@@ -9,6 +9,8 @@
 #include "LangBinder.h"
 #include "VectorArt.h"
 
+#include <set>
+
 namespace sdk {
 
 /** StarDesk main window: host panel (left) + remote-control / file tabs (right).
@@ -94,6 +96,14 @@ private:
     // connect panel (advanced options live in SettingsWindow)
     ui::VBox* m_deviceList = nullptr;
     ThemeLabel* m_deviceEmptyLabel = nullptr;
+    PillButton* m_manageBtn = nullptr;
+    bool m_manageDevices = false;
+    /** LAN peers removed by the user ("ip:port"), filtered out of discovery. */
+    std::set<std::string> m_hiddenDevices;
+    void ToggleManageDevices();
+    void HideDevice(const std::string& ipPort);
+    void RestoreHiddenDevices();
+    void UpdateManageButton();
     ui::RichEdit* m_remoteIpEdit = nullptr;
     ui::RichEdit* m_remotePortEdit = nullptr;
     ui::RichEdit* m_remotePwdEdit = nullptr;

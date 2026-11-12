@@ -28,6 +28,8 @@ struct AppConfig {
     bool viewOnly = false;     // default client mode: false=control, true=view only
     int cursorMode = 0;            // 0=local, 1=both, 2=remote
     std::string deviceName;        // device name shown to peers
+    /** LAN peers hidden from the discovery list ("ip:port" strings). */
+    std::vector<std::string> hiddenDevices;
     bool headless = false;      // host without creating a local control window
 
     // test/automation hooks (env STARDESK_AUTO_* takes precedence):

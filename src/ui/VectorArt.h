@@ -127,6 +127,17 @@ public:
     virtual void Paint(ui::IRender* pRender, const ui::UiRect& rcPaint) override;
 };
 
+/** A rounded horizontal panel container (one-line info rows); background and
+ *  border are painted with the current theme at paint time.
+ */
+class CardHBox : public ui::HBox
+{
+    typedef ui::HBox BaseClass;
+public:
+    explicit CardHBox(ui::Window* pWindow);
+    virtual void Paint(ui::IRender* pRender, const ui::UiRect& rcPaint) override;
+};
+
 /** A label whose text color is picked from the theme at paint time by role,
  *  so theme switches apply without re-setting control properties.
  */

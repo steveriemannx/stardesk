@@ -1,6 +1,8 @@
 #ifndef STARDESK_TEXT_PROBE_H_
 #define STARDESK_TEXT_PROBE_H_
 
+#include "dui/dui.h"
+
 #include <string>
 
 namespace sdk {
@@ -11,6 +13,7 @@ namespace sdk {
  *  without a window. The first 8 bytes are width/height as two uint32.
  */
 void RunTextProbe(const std::string& path);
+
 
 } // namespace sdk
 

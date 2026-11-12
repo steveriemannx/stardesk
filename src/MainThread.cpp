@@ -160,6 +160,7 @@ void MainThread::OnInit()
     window->CreateWnd(nullptr, ui::WindowCreateParam("StarDesk", true));
     window->PostQuitMsgWhenClosed(true);
     window->ShowWindow(ui::kSW_SHOW_NORMAL);
+
 }
 
 void MainThread::OnCleanup()

@@ -410,6 +410,21 @@ void CardBox::Paint(IRender* pRender, const UiRect& rcPaint)
     BaseClass::Paint(pRender, rcPaint);
 }
 
+// ---------------------------------------------------------------- CardHBox
+
+CardHBox::CardHBox(ui::Window* pWindow) : BaseClass(pWindow)
+{
+}
+
+void CardHBox::Paint(ui::IRender* pRender, const ui::UiRect& rcPaint)
+{
+    const Palette& p = Theme::Get();
+    const ui::UiRect rc = GetRect();
+    pRender->FillRoundRect(UiRectF::MakeFromRect(rc), 10.0f, 10.0f, p.panelBg, 255);
+    pRender->DrawRoundRect(UiRectF::MakeFromRect(rc), 10.0f, 10.0f, p.border, 1.0f);
+    BaseClass::Paint(pRender, rcPaint);
+}
+
 // ---------------------------------------------------------------- ThemeLabel
 
 ThemeLabel::ThemeLabel(ui::Window* pWindow) : BaseClass(pWindow)

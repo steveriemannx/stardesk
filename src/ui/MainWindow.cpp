@@ -171,6 +171,11 @@ void MainWindow::OnInitWindow()
 
     const Palette& p = Theme::Get();
 
+    m_hiddenDevices.clear();
+    for (const std::string& hidden : App::Instance().Config().hiddenDevices) {
+        m_hiddenDevices.insert(ui::StringConvert::TToUTF8(hidden));
+    }
+
     // ---- root ----
     ui::VBox* root = new ui::VBox(this);
     root->SetBkColor(p.windowBg);
@@ -482,9 +487,26 @@ void MainWindow::OnInitWindow()
     cardDevices->SetAttribute("child_margin_y", "6");
     m_panelRemote->AddItem(cardDevices);
 
+    ui::HBox* devicesHead = new ui::HBox(this);
+    devicesHead->SetAttribute("height", "26");
+    devicesHead->SetAttribute("child_margin_x", "8");
+    cardDevices->AddItem(devicesHead);
+
     ThemeLabel* devicesTitle = static_cast<ThemeLabel*>(MakeLabel("client.devices", ThemeLabel::Role::Title));
     devicesTitle->SetAttribute("height", "22");
-    cardDevices->AddItem(devicesTitle);
+    devicesTitle->SetAttribute("width", "stretch");
+    devicesHead->AddItem(devicesTitle);
+
+    m_manageBtn = new PillButton(this);
+    m_manageBtn->SetAttribute("width", "auto");
+    m_manageBtn->SetAttribute("padding", "10,0,10,0");
+    m_manageBtn->SetAttribute("height", "22");
+    m_manageBtn->AttachClick([this](const ui::EventArgs&) {
+        ToggleManageDevices();
+        return true;
+    });
+    devicesHead->AddItem(m_manageBtn);
+    UpdateManageButton();
 
     m_deviceList = new ui::VBox(this);
     m_deviceList->SetAttribute("child_margin_y", "4");
@@ -1091,41 +1113,122 @@ void MainWindow::SetLanDevices(const std::vector<std::pair<std::string, std::str
     m_deviceList->RemoveAllItems();
     m_deviceEmptyLabel = nullptr;
 
+    // hidden peers stay out of the list until restored
+    std::vector<std::pair<std::string, std::string>> visible;
+    visible.reserve(nameIpPorts.size());
     for (const auto& nameIp : nameIpPorts) {
-        CardBox* row = new CardBox(this);
-        row->SetAttribute("height", "30");
-        row->SetAttribute("padding", "10,0,10,0");
+        if (m_hiddenDevices.count(nameIp.second) == 0) {
+            visible.push_back(nameIp);
+        }
+    }
 
-        ThemeLabel* l = new ThemeLabel(this);
-        l->SetRole(ThemeLabel::Role::Main);
-        l->SetText(nameIp.first);
-        l->SetAttribute("width", "stretch");
-        row->AddItem(l);
+    for (const auto& nameIp : visible) {
+        const bool removable = m_manageDevices;
+        CardHBox* row = new CardHBox(this);
+        row->SetAttribute("height", "34");
+        row->SetAttribute("padding", "12,0,12,0");
+        row->SetAttribute("child_margin_x", "8");
 
-        ThemeLabel* r = new ThemeLabel(this);
-        r->SetRole(ThemeLabel::Role::Sub);
-        r->SetText(nameIp.second);
-        r->SetAttribute("width", "auto");
-        row->AddItem(r);
+        ThemeLabel* nameLabel = new ThemeLabel(this);
+        nameLabel->SetRole(ThemeLabel::Role::Main);
+        nameLabel->SetText(nameIp.first);
+        nameLabel->SetAttribute("width", "stretch");
+        row->AddItem(nameLabel);
 
-        row->AttachClick([this, nameIp](const ui::EventArgs&) {
+        ThemeLabel* addrLabel = new ThemeLabel(this);
+        addrLabel->SetRole(ThemeLabel::Role::Sub);
+        addrLabel->SetText(nameIp.second);
+        addrLabel->SetAttribute("width", "auto");
+        row->AddItem(addrLabel);
+
+        if (removable) {
+            IconButton* removeBtn = new IconButton(this);
+            removeBtn->SetIcon(VectorArt::Icon::Close);
+            removeBtn->SetIconToolTip(SDK_TR("client.removeDevice"));
+            removeBtn->SetAttribute("width", "22");
+            removeBtn->SetAttribute("height", "22");
+            const std::string ipPort = nameIp.second;
+            removeBtn->AttachClick([this, ipPort](const ui::EventArgs&) {
+                HideDevice(ipPort);
+                return true;
+            });
+            row->AddItem(removeBtn);
+        }
+
+        const std::string ipPort = nameIp.second;
+        row->AttachClick([this, ipPort](const ui::EventArgs&) {
+            if (m_manageDevices) {
+                return true; // managing: row clicks do not start a connection
+            }
             // "ip:port" -> fill both fields
-            const size_t colon = nameIp.second.find((':'));
-            m_remoteIpEdit->SetText(nameIp.second.substr(0, colon));
+            const size_t colon = ipPort.find((':'));
+            m_remoteIpEdit->SetText(ipPort.substr(0, colon));
             if (colon != std::string::npos) {
-                m_remotePortEdit->SetText(nameIp.second.substr(colon + 1));
+                m_remotePortEdit->SetText(ipPort.substr(colon + 1));
             }
             return true;
         });
         m_deviceList->AddItem(row);
     }
 
-    if (nameIpPorts.empty()) {
-        m_deviceEmptyLabel = static_cast<ThemeLabel*>(MakeLabel("client.noDevices", ThemeLabel::Role::Sub));
-        m_deviceEmptyLabel->SetText(SDK_TR("client.noDevices"));
+    if (visible.empty()) {
+        m_deviceEmptyLabel = static_cast<ThemeLabel*>(MakeLabel(
+            m_hiddenDevices.empty() ? "client.noDevices" : "client.allHidden",
+            ThemeLabel::Role::Sub));
+        m_deviceEmptyLabel->SetText(SDK_TR(m_hiddenDevices.empty() ? "client.noDevices"
+                                                                   : "client.allHidden"));
         m_deviceEmptyLabel->SetAttribute("height", "26");
         m_deviceList->AddItem(m_deviceEmptyLabel);
     }
+
+    if (m_manageDevices && !m_hiddenDevices.empty()) {
+        PillButton* restoreBtn = new PillButton(this);
+        restoreBtn->SetText(SDK_TR("client.restoreDevices"));
+        restoreBtn->SetAttribute("width", "auto");
+        restoreBtn->SetAttribute("padding", "12,0,12,0");
+        restoreBtn->SetAttribute("height", "28");
+        restoreBtn->AttachClick([this](const ui::EventArgs&) {
+            RestoreHiddenDevices();
+            return true;
+        });
+        m_deviceList->AddItem(restoreBtn);
+    }
+}
+
+void MainWindow::UpdateManageButton()
+{
+    if (m_manageBtn == nullptr) {
+        return;
+    }
+    m_manageBtn->SetText(SDK_TR(m_manageDevices ? "client.manageDone" : "client.manage"));
+}
+
+void MainWindow::ToggleManageDevices()
+{
+    m_manageDevices = !m_manageDevices;
+    UpdateManageButton();
+    SetLanDevices(m_lastLanDevices);
+}
+
+void MainWindow::HideDevice(const std::string& ipPort)
+{
+    m_hiddenDevices.insert(ipPort);
+    AppConfig& cfg = App::Instance().Config();
+    cfg.hiddenDevices.clear();
+    for (const std::string& hidden : m_hiddenDevices) {
+        cfg.hiddenDevices.push_back(hidden);
+    }
+    cfg.Save();
+    SetLanDevices(m_lastLanDevices);
+}
+
+void MainWindow::RestoreHiddenDevices()
+{
+    m_hiddenDevices.clear();
+    AppConfig& cfg = App::Instance().Config();
+    cfg.hiddenDevices.clear();
+    cfg.Save();
+    SetLanDevices(m_lastLanDevices);
 }
 
 // ---------------------------------------------------------------- theme / language
@@ -1181,6 +1284,7 @@ void MainWindow::ApplyLanguage()
             SDK_TR(m_pwdVisible ? "host.hidePassword" : "host.showPassword"));
     }
     // rows/hints that embed translated text are rebuilt in the new language
+    UpdateManageButton();
     SetLanDevices(m_lastLanDevices);
     RebuildTransferList();
 
