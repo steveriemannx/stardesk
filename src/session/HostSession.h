@@ -35,7 +35,8 @@ struct AskInfo {
 class HostSession;
 typedef std::shared_ptr<HostSession> HostSessionPtr;
 
-class HostSession {
+class HostSession : public std::enable_shared_from_this<HostSession>
+{
 public:
     struct Callbacks {
         /** Session thread: host-side status line. */

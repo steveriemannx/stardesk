@@ -438,8 +438,14 @@ void ClientSession::RunImpl()
             App::Instance().FileTx().SetSessionToken(m_token);
         }
         if (code != AuthResultCode::Ok) {
+            fprintf(stderr, "[client] auth result code=%d\n", (int)code);
+            fflush(stderr);
             m_lastError = "auth rejected";
-            if (m_running) SetState(State::Failed, SDK_TR("client.authFailed"));
+            if (m_running) {
+                SetState(State::Failed,
+                         code == AuthResultCode::WrongPassword ? SDK_TR("client.authFailed")
+                                                              : SDK_TR("client.rejected"));
+            }
             m_running = false;
             Socket::Close(m_fd);
             m_fd = Socket::kInvalid;

@@ -860,11 +860,30 @@ void MainWindow::OnInitWindow()
             if (session == nullptr) {
                 return;
             }
-            AskWindow* dlg = new AskWindow(info, [session](bool accept) {
-                session->RespondAsk(accept);
+            if (std::getenv("STARDESK_AUTO_ACCEPT_ASK") != nullptr) {
+                // test hook: auto-accept the manual-accept request shortly after
+                fprintf(stderr, "[host] auto-accept ask from %s\n",
+                        ui::StringConvert::TToUTF8(info.ip).c_str());
+                fflush(stderr);
+                std::thread([session]() {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(800));
+                    session->RespondAsk(true);
+                }).detach();
+                return;
+            }
+            std::weak_ptr<HostSession> weakSession = session->weak_from_this();
+            AskWindow* dlg = new AskWindow(info, [weakSession](bool accept) {
+                // the session may have timed out/closed while the dialog was
+                // still on screen - never touch a destroyed session
+                if (auto sp = weakSession.lock()) {
+                    fprintf(stderr, "[host] ask dialog result accept=%d\n", (int)accept);
+                    fflush(stderr);
+                    sp->RespondAsk(accept);
+                }
             });
             dlg->CreateWnd(this, ui::WindowCreateParam("StarDesk", true));
             dlg->ShowWindow(ui::kSW_SHOW_NORMAL);
+            dlg->SetWindowForeground();
         }));
     };
     hostCb.onClosed = []() {

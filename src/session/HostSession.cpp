@@ -195,9 +195,12 @@ void HostSession::RunImpl()
         {
             std::unique_lock<std::mutex> lock(m_askMutex);
             if (!m_askDecided) {
-                m_askCv.wait_for(lock, std::chrono::seconds(60));
+                m_askCv.wait_for(lock, std::chrono::seconds(120));
             }
         }
+        fprintf(stderr, "[host] ask decision decided=%d accept=%d\n",
+                (int)m_askDecided, (int)m_askAccept);
+        fflush(stderr);
         if (!m_askDecided || !m_askAccept) {
             // rejected or timed out
             PayloadWriter w;
@@ -242,6 +245,8 @@ void HostSession::RunImpl()
         Sha256::Hash(challenge, expected);
     }
     ok = std::memcmp(expected, frame.payload.data(), Sha256::kDigestSize) == 0;
+    fprintf(stderr, "[host] auth: password_len=%zu match=%d\n", password.size(), (int)ok);
+    fflush(stderr);
 
     FillRandom(m_token, sizeof(m_token));
     if (ok) {

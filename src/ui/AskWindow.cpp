@@ -60,6 +60,22 @@ void AskWindow::GetCreateWindowAttributes(ui::WindowCreateAttributes& attrs)
 
 void AskWindow::OnInitWindow()
 {
+    if (std::getenv("STARDESK_AUTO_ACCEPT_ASK_WINDOW") != nullptr) {
+        // test hook: run the accept path exactly like a click on 允许
+        std::thread([this]() {
+            std::this_thread::sleep_for(std::chrono::milliseconds(900));
+            PostToUI(ui::UiBind(this, [this]() {
+                if (!m_done) {
+                    m_done = true;
+                    if (m_cb) {
+                        m_cb(true);
+                    }
+                    CloseWnd();
+                }
+            }));
+        }).detach();
+    }
+
     // pure-code windows must apply the caption/size-box rects themselves
     // (XML mode does this in WindowBuilder; attrs.m_rcCaption is not applied)
     SetSizeBox(ui::UiRect(4, 4, 4, 4), true);
