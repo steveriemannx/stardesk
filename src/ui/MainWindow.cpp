@@ -224,7 +224,8 @@ void MainWindow::OnInitWindow()
     // language cycle button (shows the current language name)
     m_langBtn = new PillButton(this);
     m_langBtn->SetText(Language::NativeName(Language::Get()));
-    m_langBtn->SetAttribute("width", "80");
+    m_langBtn->SetAttribute("width", "auto");
+    m_langBtn->SetAttribute("padding", "12,0,12,0");
     m_langBtn->SetAttribute("height", "30");
     m_langBtn->SetAttribute("margin", "0,5,4,5");
     m_langBtn->AttachClick([this](const ui::EventArgs&) {

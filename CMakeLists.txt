@@ -69,6 +69,7 @@ target_link_libraries(stardesk PRIVATE dui::app)
 
 # libpng headers for screen-frame encoding/decoding (libdui-png is already linked
 # by dui::app; only the headers need to be exposed).
+target_include_directories(stardesk PRIVATE "${DUI_SRC_ROOT_DIR}/third_party/skia")
 target_include_directories(stardesk PRIVATE "${DUI_SRC_ROOT_DIR}/third_party/libpng")
 # stb_image_resize2.h for receive-thread frame pre-scaling (ClientSession.cpp)
 target_include_directories(stardesk PRIVATE "${DUI_SRC_ROOT_DIR}/third_party/stb_image")

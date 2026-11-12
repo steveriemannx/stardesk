@@ -3,6 +3,7 @@
 #include "app/AppConfig.h"
 #include "session/HostSession.h"
 #include "ui/MainWindow.h"
+#include "TextProbe.h"
 
 #include <csignal>
 #include <cstring>
@@ -112,6 +113,12 @@ void MainThread::OnInit()
     ui::GlobalManager::Instance().Startup(ui::LocalFilesResParam(resourcePath));
 
     InitFontsAndColors();
+
+    // developer hook: rasterise a font-fallback probe and exit
+    if (const char* probePath = std::getenv("STARDESK_TEXT_PROBE")) {
+        RunTextProbe(probePath);
+        std::exit(0);
+    }
 
     // load config, apply theme + language
     App::Instance().Init();
