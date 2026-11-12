@@ -117,12 +117,21 @@ ui::RichEdit* MainWindow::MakeEdit(const char* promptKey, bool password)
     edit->SetAttribute("prompt_color", Theme::Hex(Theme::Get().textSub));
     edit->SetAttribute("single_line", "true");
     edit->SetAttribute("font", "system_12");
+    edit->SetAttribute("text_align", "left,vcenter");
+    SetTextPaddingForEdit(edit);
     if (password) {
         edit->SetAttribute("password", "true");
     }
     SetEditBk(edit);
     m_edits.push_back(edit);
     return edit;
+}
+
+void MainWindow::SetTextPaddingForEdit(ui::RichEdit* edit)
+{
+    if (edit != nullptr) {
+        edit->SetTextPadding(ui::UiPadding(10, 0, 10, 0), true);
+    }
 }
 
 void MainWindow::SetEditBk(ui::RichEdit* edit)
@@ -621,11 +630,23 @@ void MainWindow::OnInitWindow()
     m_remotePortEdit->SetAttribute("width", "70");
     row1->AddItem(m_remotePortEdit);
 
-    // password row
+    // password row (with the same show/hide toggle as the host password)
     ui::HBox* row2 = makeRow(cardConn, "34");
     row2->AddItem(makeFieldLabel("client.remotePassword"));
     m_remotePwdEdit = MakeEdit("client.password", true);
     row2->AddItem(m_remotePwdEdit);
+
+    m_remotePwdShowBtn = MakeIconButton(VectorArt::Icon::Eye, "client.showRemotePassword", "");
+    m_remotePwdShowBtn->SetAttribute("width", "30");
+    m_remotePwdShowBtn->SetAttribute("height", "30");
+    m_remotePwdShowBtn->AttachClick([this](const ui::EventArgs&) {
+        m_remotePwdVisible = !m_remotePwdVisible;
+        m_remotePwdEdit->SetAttribute("password", m_remotePwdVisible ? "false" : "true");
+        m_remotePwdShowBtn->SetIconToolTip(
+            SDK_TR(m_remotePwdVisible ? "client.hideRemotePassword" : "client.showRemotePassword"));
+        return true;
+    });
+    row2->AddItem(m_remotePwdShowBtn);
 
     // connect row
     ui::HBox* row3 = makeRow(cardConn, "40");
@@ -967,7 +988,7 @@ void MainWindow::OnClientState(ClientSession::State state, const std::string& te
     fflush(stderr);
     if (state == ClientSession::State::Connected) {
         m_connectBtn->SetText(SDK_TR("client.disconnect"));
-        m_connectBtn->SetDangerLook(true);
+        m_connectBtn->SetDangerLook(false);
         m_connStatusLabel->SetRole(ThemeLabel::Role::Success);
         m_connStatusLabel->SetText(text);
 
@@ -1368,6 +1389,7 @@ void MainWindow::ApplyThemeEdits()
 {
     for (ui::RichEdit* edit : m_edits) {
         SetEditBk(edit);
+        SetTextPaddingForEdit(edit);
     }
 }
 

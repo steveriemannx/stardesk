@@ -71,6 +71,9 @@ private:
 
     void ApplyThemeEdits();
     void SetEditBk(ui::RichEdit* edit);
+    /** Symmetric inner text padding so the caret can be placed after the last
+     *  character when clicking the empty area of a field. */
+    void SetTextPaddingForEdit(ui::RichEdit* edit);
 
     // caption
     IconButton* m_themeBtn = nullptr;
@@ -114,6 +117,8 @@ private:
     ui::RichEdit* m_remoteIpEdit = nullptr;
     ui::RichEdit* m_remotePortEdit = nullptr;
     ui::RichEdit* m_remotePwdEdit = nullptr;
+    IconButton* m_remotePwdShowBtn = nullptr;
+    bool m_remotePwdVisible = false;
     ThemeLabel* m_connTitleLabel = nullptr;
     IconButton* m_settingsBtn = nullptr;
     AccentButton* m_connectBtn = nullptr;
