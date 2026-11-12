@@ -889,6 +889,13 @@ void HostSession::CaptureLoop()
             m_peerCodec.load(), fps, resTargetW, resTargetH);
     fflush(stderr);
 
+    // A damage-driven Wayland stream produces no buffers while the remote
+    // desktop is static; re-send the last frame once a second so the client
+    // keeps refreshing (and stays visibly alive) instead of showing "receive 0".
+    std::vector<uint8_t> keepaliveRgba;
+    int keepaliveW = 0, keepaliveH = 0;
+    auto lastFrameAt = std::chrono::steady_clock::time_point{};
+    auto lastKeepaliveLog = std::chrono::steady_clock::time_point{};
     auto nextTick = std::chrono::steady_clock::now();
     int cursorTick = 0;
     // throttled diagnostics: real-time every 15s (NOT per-frame - the capture
@@ -914,7 +921,25 @@ void HostSession::CaptureLoop()
             got = m_testPattern->Capture(frame, m_logicalW.load() > 0 ? m_logicalW.load() : 1280,
                                          m_logicalH.load() > 0 ? m_logicalH.load() : 720);
         }
+        const auto loopNow = std::chrono::steady_clock::now();
+        if (!got && !keepaliveRgba.empty() &&
+            loopNow - lastFrameAt >= std::chrono::seconds(1)) {
+            // static desktop: repeat the last frame once a second
+            frame.rgba = keepaliveRgba;
+            frame.width = keepaliveW;
+            frame.height = keepaliveH;
+            got = true;
+            if (loopNow - lastKeepaliveLog >= std::chrono::seconds(10)) {
+                lastKeepaliveLog = loopNow;
+                fprintf(stderr, "[host] static desktop, re-sending the last frame (1 fps)\n");
+                fflush(stderr);
+            }
+        }
         if (got) {
+            keepaliveRgba = frame.rgba;
+            keepaliveW = frame.width;
+            keepaliveH = frame.height;
+            lastFrameAt = std::chrono::steady_clock::now();
             // Keep the logical screen size up to date so input injection
             // can map normalised client coordinates to physical screen
             // pixels. Use the capturer's native resolution (1440×900), not

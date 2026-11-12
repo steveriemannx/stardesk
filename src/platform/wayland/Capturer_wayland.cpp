@@ -174,6 +174,12 @@ struct Capturer::Impl {
     std::mutex frameMutex;
     CaptureFrame latest;
     bool haveFrame = false;
+    // diagnostics: how many PipeWire buffers the compositor delivered and when
+    // the last one arrived. Mutter's ScreenCast stream is damage-driven, so a
+    // static desktop legitimately stops delivering; a stall while the desktop
+    // changes means the stream is wedged (the capture loop logs both cases).
+    std::atomic<uint32_t> pwFrames{0};
+    std::atomic<int64_t> lastPwMs{0};
 
     // --- EGL readback (DMA-BUF) ---
     struct wl_display* wlDisplay = nullptr;
@@ -664,6 +670,15 @@ void PwOnProcess(void* data)
     if (pwb == nullptr) {
         return;
     }
+    {
+        const uint32_t n = ++impl->pwFrames;
+        impl->lastPwMs.store((int64_t)std::chrono::duration_cast<std::chrono::milliseconds>(
+                                 std::chrono::steady_clock::now().time_since_epoch()).count());
+        if ((n & 0x1FF) == 1) {
+            fprintf(stderr, "[capture] pw buffer #%u\n", n);
+            fflush(stderr);
+        }
+    }
     spa_buffer* buf = pwb->buffer;
     if (buf == nullptr || buf->n_datas == 0) {
         pw_stream_queue_buffer(impl->stream, pwb);
@@ -909,14 +924,19 @@ void PwOnProcess(void* data)
                         }
                     }
                     if (allBlack) {
+                        // A transient black readback (or a tiled buffer the
+                        // driver read back wrong) must not switch us to the
+                        // mmap path: mmap of a tiled DMA-BUF reads past the
+                        // row layout and crashed (SIGSEGV in PwOnProcess).
+                        // Drop this buffer and let the next one through.
                         static uint32_t sBlack = 0;
                         if ((++sBlack & 0x3F) == 1) {
-                            fprintf(stderr, "[capture] EGL readback black (%u so far), using mmap\n",
+                            fprintf(stderr, "[capture] EGL readback black (%u so far), dropped\n",
                                     sBlack);
                             fflush(stderr);
                         }
-                        out.rgba.clear();
-                        // fall through to mmap below
+                        pw_stream_queue_buffer(impl->stream, pwb);
+                        return;
                     } else {
                         // Check for garbled output: NVIDIA tiled buffers imported
                         // with a mismatched modifier produce swizzled pixel soup
@@ -957,8 +977,18 @@ void PwOnProcess(void* data)
                             }
                         }
                         if (garbled) {
-                            out.rgba.clear();
-                            // fall through to mmap below
+                            // Tiled buffer imported with the wrong modifier:
+                            // the pixels are swizzled and the mmap path cannot
+                            // read them linearly either - drop the buffer.
+                            static uint32_t sGarbledDrop = 0;
+                            if ((++sGarbledDrop & 0x3F) == 1) {
+                                fprintf(stderr,
+                                        "[capture] EGL garbled frame dropped (%u so far)\n",
+                                        sGarbledDrop);
+                                fflush(stderr);
+                            }
+                            pw_stream_queue_buffer(impl->stream, pwb);
+                            return;
                         } else {
                             // Wayland DMA-BUF is top-down; EGL import keeps it,
                             // glBlitFramebuffer maps source Y=0 (top) to dest
@@ -1033,6 +1063,32 @@ void PwOnProcess(void* data)
                     return;
                 }
             }
+        }
+        // Only linear (modifier 0) buffers can be read as a linear image.
+        // Tiled/compressed DMA-BUFs must go through EGL; reading them with
+        // mmap walks past the row layout and crashes.
+        if (impl->drmModifier != 0) {
+            static uint32_t sTiledDrop = 0;
+            if ((++sTiledDrop & 0x3F) == 1) {
+                fprintf(stderr,
+                        "[capture] dropping tiled buffer (modifier=%llu, %u so far)\n",
+                        (unsigned long long)impl->drmModifier, sTiledDrop);
+                fflush(stderr);
+            }
+            pw_stream_queue_buffer(impl->stream, pwb);
+            return;
+        }
+        if (stride < (int32_t)w * 4 || size < (size_t)h * (size_t)stride) {
+            static uint32_t sBadLayout = 0;
+            if ((++sBadLayout & 0x3F) == 1) {
+                fprintf(stderr,
+                        "[capture] dropping buffer with short layout "
+                        "(w=%d stride=%d size=%zu need=%zu)\n",
+                        w, stride, size, (size_t)h * (size_t)stride);
+                fflush(stderr);
+            }
+            pw_stream_queue_buffer(impl->stream, pwb);
+            return;
         }
         void* map = mmap(nullptr, (size_t)h * (size_t)stride, PROT_READ,
                          MAP_SHARED, d->fd, (off_t)offset);
@@ -2329,12 +2385,35 @@ bool Capturer::Capture(CaptureFrame& out)
         wl_display_dispatch_pending(m_impl->wlDisplay);
         wl_display_flush(m_impl->wlDisplay);
     }
-    std::lock_guard<std::mutex> lock(m_impl->frameMutex);
-    if (!m_impl->haveFrame) {
-        return false;
+    {
+        std::lock_guard<std::mutex> lock(m_impl->frameMutex);
+        if (m_impl->haveFrame) {
+            out = m_impl->latest;
+            m_impl->haveFrame = false;
+            return true;
+        }
     }
-    out = m_impl->latest;
-    return true;
+    // No new buffer: the compositor stream is damage-driven, so this is normal
+    // while the desktop is static. Report it once a second when it persists -
+    // together with the pw-buffer counter it tells "static screen" apart from
+    // "wedged stream" (buffer count no longer moves while the desktop changes).
+    static auto sLastReport = std::chrono::steady_clock::now();
+    const auto now = std::chrono::steady_clock::now();
+    if (now - sLastReport >= std::chrono::seconds(10)) {
+        sLastReport = now;
+        const int64_t lastMs = m_impl->lastPwMs.load();
+        const int64_t nowMs = (int64_t)std::chrono::duration_cast<std::chrono::milliseconds>(
+                                  now.time_since_epoch()).count();
+        const int64_t ageMs = lastMs > 0 ? nowMs - lastMs : -1;
+        // Normal for a damage-driven compositor stream (static desktop); only
+        // report the long stalls, at a 10s interval.
+        if (ageMs < 0 || ageMs > 5000) {
+            fprintf(stderr, "[capture] no new frame (last pw buffer %lld ms ago, total %u)\n",
+                    (long long)ageMs, (unsigned)m_impl->pwFrames.load());
+            fflush(stderr);
+        }
+    }
+    return false;
 }
 
 // Decode one portal screenshot file (file:// URI) into an RGBA frame.
