@@ -656,7 +656,13 @@ void MainWindow::OnInitWindow()
     m_deviceList = new ui::VBox(this);
     m_deviceList->SetAttribute("child_margin_y", "4");
     m_deviceList->AttachClick([this](const ui::EventArgs&) {
-        // clicking the empty area below the rows clears the selection
+        // dui notifies the list box for row clicks too; those were already
+        // consumed by the row (which sets/keeps the selection)
+        if (m_deviceRowClick) {
+            m_deviceRowClick = false;
+            return true;
+        }
+        // genuinely empty area: clear the selection
         if (!m_selectedDeviceIpPort.empty()) {
             m_selectedDeviceIpPort.clear();
             SetLanDevices(m_lastLanDevices);
@@ -1590,6 +1596,7 @@ void MainWindow::SetLanDevices(const std::vector<std::pair<std::string, std::str
         };
         row->SetSelected(ipPort == m_selectedDeviceIpPort);
         row->AttachClick([this, ipPort](const ui::EventArgs&) {
+            m_deviceRowClick = true; // the list box also gets this click
             if (m_manageDevices) {
                 return true;
             }
@@ -1599,6 +1606,7 @@ void MainWindow::SetLanDevices(const std::vector<std::pair<std::string, std::str
             return true;
         });
         row->AttachDoubleClick([this, ipPort, fillFromRow](const ui::EventArgs&) {
+            m_deviceRowClick = true; // the list box also gets this click
             if (m_manageDevices) {
                 return true;
             }
