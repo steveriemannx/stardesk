@@ -236,4 +236,14 @@ endif()
 
 # Output directory, Windows entry point, the macOS .app bundle and its code
 # signature, and build ordering for the Skia archive.
+# macOS bundle identity: a proper display name + stable id makes StarDesk show
+# up as "StarDesk" in System Settings > Privacy & Security lists.
+if(APPLE)
+    set_target_properties(stardesk PROPERTIES
+        MACOSX_BUNDLE_BUNDLE_NAME "StarDesk"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.stardesk.app"
+        MACOSX_BUNDLE_BUNDLE_VERSION "1.0"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0")
+endif()
+
 dui_finalize_app(stardesk)

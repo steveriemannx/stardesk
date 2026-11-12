@@ -182,6 +182,11 @@ void MainWindow::OnInitWindow()
     if (!CGPreflightScreenCaptureAccess()) {
         CGRequestScreenCaptureAccess();
     }
+    // registering the app in the Accessibility / Input Monitoring lists needs
+    // an explicit request, not just a preflight check
+    if (!InputInjector::PermissionGranted()) {
+        InputInjector::RequestPermission();
+    }
 #endif
 
     const Palette& p = Theme::Get();
@@ -493,6 +498,24 @@ void MainWindow::OnInitWindow()
     m_permissionBtn->SetAttribute("padding", "12,0,12,0");
     m_permissionBtn->SetAttribute("height", "28");
     m_permissionBtn->SetVisible(false);
+    m_permissionBtn->AttachClick([](const ui::EventArgs&) {
+#ifdef __APPLE__
+        // jump straight to the pane the user needs to change (modern pane id;
+        // falls back to the legacy URL if the new one is rejected)
+        const char* anchor = !InputInjector::PermissionGranted()
+            ? "Privacy_Accessibility"
+            : "Privacy_ScreenCapture";
+        std::string url = std::string(
+            "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?") + anchor;
+        std::string command = std::string("open \"") + url + "\"";
+        if (system(command.c_str()) != 0) {
+            url = std::string("x-apple.systempreferences:com.apple.preference.security?") + anchor;
+            command = std::string("open \"") + url + "\"";
+            system(command.c_str());
+        }
+#endif
+        return true;
+    });
     cardStatus->AddItem(m_permissionBtn);
 
     // flexible spacer: cards keep their natural height, remaining sidebar space
@@ -823,41 +846,19 @@ void MainWindow::OnInitWindow()
     }
     // remote input injection needs the Accessibility permission (macOS);
     // without it mouse/keyboard events are silently dropped by the system
-    {
-        std::string permissionHint;
-        std::string permissionTooltip;
-#ifdef __APPLE__
-        if (!InputInjector::PermissionGranted()) {
-            permissionHint = SDK_TR("client.permAccessibilityShort");
-            permissionTooltip = SDK_TR("remote.accessibilityHint");
+    RefreshPermissionState();
+
+    // poll while the app runs so granting a permission in System Settings is
+    // picked up without restarting the app
+    std::thread([this]() {
+        for (;;) {
+            std::this_thread::sleep_for(std::chrono::seconds(3));
+            PostToUI(ui::UiBind(this, [this]() {
+                RefreshPermissionState();
+            }));
         }
-        if (!CGPreflightScreenCaptureAccess()) {
-            if (!permissionHint.empty()) {
-                permissionHint += "\n";
-                permissionTooltip += "\n\n";
-            }
-            permissionHint += SDK_TR("client.permScreenShort");
-            permissionTooltip += SDK_TR("remote.permissionHint");
-        }
-#endif
-        if (!permissionHint.empty()) {
-            m_permissionHint->SetText(permissionHint);
-            m_permissionHint->SetToolTipText(permissionTooltip);
-            m_permissionHint->SetVisible(true);
-            m_permissionBtn->SetVisible(true);
-            m_permissionBtn->AttachClick([](const ui::EventArgs&) {
-#ifdef __APPLE__
-                // jump straight to the pane the user needs to change
-                const char* pane = "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility";
-                std::string command = std::string("open \"") + pane + "\"";
-                if (system(command.c_str()) != 0) {
-                    fprintf(stderr, "[client] open system settings failed\n");
-                }
-#endif
-                return true;
-            });
-        }
-    }
+    }).detach();
+
     // global file-transfer progress -> transfer list
     App::Instance().FileTx().SetItemCallback([this](const FileTransfer::Item& item) {
         PostToUI(ui::UiBind(this, [this, item]() { OnItemUpdated(item); }));
@@ -1444,6 +1445,38 @@ void MainWindow::ApplyThemeEdits()
     }
 }
 
+void MainWindow::RefreshPermissionState()
+{
+    if (m_permissionHint == nullptr || m_permissionBtn == nullptr) {
+        return;
+    }
+    std::string permissionHint;
+    std::string permissionTooltip;
+#ifdef __APPLE__
+    if (!InputInjector::PermissionGranted()) {
+        permissionHint = SDK_TR("client.permAccessibilityShort");
+        permissionTooltip = SDK_TR("remote.accessibilityHint");
+    }
+    if (!CGPreflightScreenCaptureAccess()) {
+        if (!permissionHint.empty()) {
+            permissionHint += "\n";
+            permissionTooltip += "\n\n";
+        }
+        permissionHint += SDK_TR("client.permScreenShort");
+        permissionTooltip += SDK_TR("remote.permissionHint");
+    }
+#endif
+    const bool needed = !permissionHint.empty();
+    if (m_permissionHint->IsVisible() != needed) {
+        m_permissionHint->SetVisible(needed);
+        m_permissionBtn->SetVisible(needed);
+    }
+    if (needed && m_permissionHint->GetText() != permissionHint) {
+        m_permissionHint->SetText(permissionHint);
+        m_permissionHint->SetToolTipText(permissionTooltip);
+    }
+}
+
 void MainWindow::ApplyTheme()
 {
     if (m_caption != nullptr) {
@@ -1480,28 +1513,7 @@ void MainWindow::ApplyLanguage()
 
     // status lines (re-render with the current language)
     SetHostStatus(SDK_TR("host.ready"), true);
-    if (m_permissionHint != nullptr && m_permissionHint->IsVisible()) {
-        std::string permissionHint;
-        std::string permissionTooltip;
-#ifdef __APPLE__
-        if (!InputInjector::PermissionGranted()) {
-            permissionHint = SDK_TR("client.permAccessibilityShort");
-            permissionTooltip = SDK_TR("remote.accessibilityHint");
-        }
-        if (!CGPreflightScreenCaptureAccess()) {
-            if (!permissionHint.empty()) {
-                permissionHint += "\n";
-                permissionTooltip += "\n\n";
-            }
-            permissionHint += SDK_TR("client.permScreenShort");
-            permissionTooltip += SDK_TR("remote.permissionHint");
-        }
-#endif
-        if (!permissionHint.empty()) {
-            m_permissionHint->SetText(permissionHint);
-            m_permissionHint->SetToolTipText(permissionTooltip);
-        }
-    }
+    RefreshPermissionState();
 
     // prompt texts per field
     m_remoteIpEdit->SetAttribute("prompt_text", SDK_TR("client.ip"));

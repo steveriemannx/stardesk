@@ -94,6 +94,8 @@ private:
     PillButton* m_mirrorPill = nullptr;
     PillButton* m_extendPill = nullptr;
     ThemeLabel* m_hostStatusLabel = nullptr;
+    /** Re-check macOS permissions and update the hint/button visibility. */
+    void RefreshPermissionState();
     /** Permission warning shown under the host status (macOS accessibility). */
     ThemeLabel* m_permissionHint = nullptr;
     PillButton* m_permissionBtn = nullptr;

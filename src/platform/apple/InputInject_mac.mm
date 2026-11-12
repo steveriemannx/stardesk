@@ -146,6 +146,22 @@ void InputInjector::ResetCursor()
     // tracker to re-anchor on the client side.
 }
 
+void InputInjector::RequestPermission()
+{
+    fprintf(stderr, "[perm] post=%d listen=%d, requesting...\n",
+            (int)CGPreflightPostEventAccess(), (int)CGPreflightListenEventAccess());
+    fflush(stderr);
+    // Calling the CG request functions is what makes macOS add this app to the
+    // Privacy lists and show the system prompt; a plain preflight check does
+    // not register the app, so it never appeared in System Settings.
+    if (!CGPreflightPostEventAccess()) {
+        CGRequestPostEventAccess();
+    }
+    if (!CGPreflightListenEventAccess()) {
+        CGRequestListenEventAccess();
+    }
+}
+
 bool InputInjector::PermissionGranted()
 {
     return CGPreflightListenEventAccess() && CGPreflightPostEventAccess();

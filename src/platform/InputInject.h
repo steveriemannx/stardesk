@@ -51,6 +51,9 @@ public:
 
     /** True when injection is permitted (macOS Accessibility etc.). */
     static bool PermissionGranted();
+    /** Ask the OS for the permission (macOS: shows the system prompt and
+     *  registers this app in the Accessibility / Input Monitoring lists). */
+    static void RequestPermission();
     /** Human-readable permission hint for the UI. */
     static std::string PermissionHint();
 
