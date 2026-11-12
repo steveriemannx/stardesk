@@ -28,7 +28,19 @@ echo "== installing to $DEST"
 rm -rf "$DEST"
 ditto "$APP" "$DEST"
 xattr -dr com.apple.quarantine "$DEST" 2>/dev/null || true
-codesign --force --deep --sign - "$DEST" >/dev/null 2>&1 || true
+# Prefer the stable local identity (scripts/setup-signing.sh): an ad-hoc
+# signature changes on every build, which makes macOS forget the Screen
+# Recording / Accessibility grants. Without the identity, fall back to ad-hoc.
+SIGN_ID="StarDesk Local Dev"
+if security find-identity -v -p codesigning 2>/dev/null | grep -q "$SIGN_ID"; then
+    echo "== signing with stable identity: $SIGN_ID"
+    codesign --force --deep --sign "$SIGN_ID" "$DEST" >/dev/null 2>&1 || \
+        codesign --force --deep --sign - "$DEST" >/dev/null 2>&1 || true
+else
+    codesign --force --deep --sign - "$DEST" >/dev/null 2>&1 || true
+    echo "   (no stable identity; run scripts/setup-signing.sh to avoid"
+    echo "    re-granting permissions after every rebuild)"
+fi
 
 if [[ "${1:-}" == "--reset" ]]; then
     echo "== resetting permission decisions for com.stardesk.app"

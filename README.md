@@ -48,8 +48,13 @@ macOS 的「隐私与安全性」列表只方便添加 `*.app` 包，推荐把�
 `/Applications` 再授权：
 
 ```bash
-./scripts/install-macos.sh   # 拷到 /Applications/StarDesk.app、重置权限、启动
+./scripts/setup-signing.sh   # 首次:创建本地自签名代码签名身份(只做一次)
+./scripts/install-macos.sh   # 安装到 /Applications/StarDesk.app 并启动
 ```
+
+**为什么要 `setup-signing.sh`**:ad-hoc 签名每次编译都会变,macOS 会因此把
+屏幕录制/辅助功能授权作废,每次重建都要重新勾选。用固定的本地签名身份后,
+签名不再变化,权限可以一直保留(首次仍需授权一次)。
 
 然后再到 **系统设置 → 隐私与安全性 → 辅助功能 / 屏幕录制** 里勾选 StarDesk
 （没有条目时点 "+" → Cmd+Shift+G → 输入 `/Applications` → 选 StarDesk.app）。
