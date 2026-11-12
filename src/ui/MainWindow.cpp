@@ -179,7 +179,11 @@ void MainWindow::OnInitWindow()
     // Ask for Screen Recording permission once at startup: without it the
     // host falls back to the test pattern. CGRequestScreenCaptureAccess
     // shows the system dialog on the first call (main thread only).
-    if (!CGPreflightScreenCaptureAccess()) {
+    const bool screenCaptureAllowed = CGPreflightScreenCaptureAccess();
+    fprintf(stderr, "[perm] screenCapture=%d accessibility=%d\n",
+            (int)screenCaptureAllowed, (int)InputInjector::PermissionGranted());
+    fflush(stderr);
+    if (!screenCaptureAllowed) {
         CGRequestScreenCaptureAccess();
     }
     // registering the app in the Accessibility / Input Monitoring lists needs

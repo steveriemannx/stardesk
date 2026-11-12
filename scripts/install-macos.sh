@@ -2,7 +2,8 @@
 # Install StarDesk into /Applications (or ~/Applications) and ask macOS for the
 # Screen Recording / Accessibility permissions again.
 #
-#   ./scripts/install-macos.sh
+#   ./scripts/install-macos.sh          # keep existing permission grants
+#   ./scripts/install-macos.sh --reset  # forget permissions (prompts again)
 #
 # The app is ad-hoc signed, so re-run this after rebuilding to keep the installed
 # copy in sync with the build (macOS may ask for the permissions again because
@@ -29,10 +30,12 @@ ditto "$APP" "$DEST"
 xattr -dr com.apple.quarantine "$DEST" 2>/dev/null || true
 codesign --force --deep --sign - "$DEST" >/dev/null 2>&1 || true
 
-echo "== resetting permission decisions for com.stardesk.app"
-tccutil reset Accessibility com.stardesk.app >/dev/null 2>&1 || true
-tccutil reset ScreenCapture com.stardesk.app >/dev/null 2>&1 || true
-tccutil reset ListenEvent com.stardesk.app >/dev/null 2>&1 || true
+if [[ "${1:-}" == "--reset" ]]; then
+    echo "== resetting permission decisions for com.stardesk.app"
+    tccutil reset Accessibility com.stardesk.app >/dev/null 2>&1 || true
+    tccutil reset ScreenCapture com.stardesk.app >/dev/null 2>&1 || true
+    tccutil reset ListenEvent com.stardesk.app >/dev/null 2>&1 || true
+fi
 
 echo "== launching $DEST"
 open "$DEST"
