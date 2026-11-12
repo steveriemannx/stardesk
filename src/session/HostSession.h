@@ -84,6 +84,9 @@ private:
     Socket::sock_t m_fd = Socket::kInvalid;   // owned by the accept thread until TakeFd()
     Socket::sock_t m_threadFd = Socket::kInvalid; // owned by the session thread
     std::string m_peerIp;
+    /** True when the peer runs on this same machine (feedback-loop guard). */
+    bool m_peerIsLocal = false;
+    bool m_peerLocalChecked = false;
     uint16_t m_filePort = 0; // this app's file-channel port (advertised in AuthResult)
     uint16_t m_clientFilePort = 0; // peer's file-channel port (from Hello)
     // remote-cursor visibility: 1 = the peer wants the cursor hidden in the

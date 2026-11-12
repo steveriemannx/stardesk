@@ -469,6 +469,13 @@ void HostSession::HandleInputEvent(const std::vector<uint8_t>& payload)
         }
         return;
     }
+    static const std::vector<std::string> sLocalIps = Socket::GetLocalIPv4s();
+    if (!m_peerLocalChecked) {
+        m_peerLocalChecked = true;
+        m_peerIsLocal = m_peerIp == "127.0.0.1" || m_peerIp == "::1" ||
+                        std::find(sLocalIps.begin(), sLocalIps.end(), m_peerIp) != sLocalIps.end();
+    }
+
     const double nx = (double)xNorm / 65535.0;
     const double ny = (double)yNorm / 65535.0;
 
@@ -499,7 +506,10 @@ void HostSession::HandleInputEvent(const std::vector<uint8_t>& payload)
     // land on it and re-trigger an input event (infinite loop); the windows
     // are excluded from the capture anyway, so they are invisible in the
     // stream and there is nothing meaningful to operate there.
-    if (m_capturer) {
+    // Only relevant when the peer is on THIS machine: a remote peer must be
+    // able to operate whatever is on the host screen, including areas that
+    // our (visible) window happens to cover.
+    if (m_capturer && m_peerIsLocal) {
         const int pw = m_capturer->GetWidth();   // physical points
         const int ph = m_capturer->GetHeight();
         const int ox = m_capturer->GetOriginX();

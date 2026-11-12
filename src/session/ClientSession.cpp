@@ -449,6 +449,32 @@ void ClientSession::RunImpl()
 
     SetState(State::Connected, SDK_TR("client.connected_"));
 
+    if (const char* testInput = std::getenv("STARDESK_TEST_INPUT")) {
+        const double pos = std::atof(testInput); // normalized target (0..1); 0 = default
+        std::thread([this, pos]() {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+            const double tx = pos > 0 ? pos : 0.30;
+            const double ty = pos > 0 ? pos : 0.30;
+            InputEventMsg mv;
+            mv.kind = 0;
+            mv.xNorm = (uint16_t)(tx * 65535);
+            mv.yNorm = (uint16_t)(ty * 65535);
+            SendInput(mv);
+            fprintf(stderr, "[test] input move -> (%.2f,%.2f)\n", tx, ty);
+            std::this_thread::sleep_for(std::chrono::milliseconds(1200));
+            InputEventMsg down;
+            down.kind = 1;
+            down.xNorm = mv.xNorm;
+            down.yNorm = mv.yNorm;
+            down.buttons = 1;
+            SendInput(down);
+            std::this_thread::sleep_for(std::chrono::milliseconds(120));
+            down.buttons = 0;
+            SendInput(down);
+            fprintf(stderr, "[test] input click done\n");
+        }).detach();
+    }
+
     // ---- receive loop ----
     m_statsAt = std::chrono::steady_clock::now();
     m_lastPingAt = m_statsAt;
