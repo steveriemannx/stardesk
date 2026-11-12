@@ -354,6 +354,7 @@ void ClientSession::RunImpl()
         }
     }
 
+    bool manualGranted = false;
     // ---- wait for challenge (host may show a manual-accept dialog first) ----
     // The connect/handshake phase has a hard deadline so a host that accepts
     // TCP but never answers cannot leave the UI stuck on "connecting" forever.
@@ -382,6 +383,16 @@ void ClientSession::RunImpl()
         if (frame.type == MsgType::AuthResult) {
             PayloadReader r(frame.payload.data(), frame.payload.size());
             const AuthResultCode code = (AuthResultCode)r.GetU8();
+            m_filePort = r.GetU16();
+            r.GetBytes(m_token, 32);
+            if (code == AuthResultCode::Ok) {
+                // manual accept: the host approved the session without a password
+                manualGranted = true;
+                App::Instance().FileTx().SetSessionToken(m_token);
+                fprintf(stderr, "[client] manual accept granted (no password)\n");
+                fflush(stderr);
+                break;
+            }
             m_lastError = "auth rejected";
             if (m_running) SetState(State::Failed, SDK_TR("client.rejected"));
             m_running = false;
@@ -394,63 +405,66 @@ void ClientSession::RunImpl()
         return;
     }
 
-    // ---- Auth (the challenge frame from the loop above is still in `frame`) ----
-    {
-        PayloadReader r(frame.payload.data(), frame.payload.size());
-        uint8_t nonce[16] = {0};
-        r.GetBytes(nonce, 16);
-        if (!r.Ok()) {
-            FailNet(SDK_TR("client.networkError"));
-            return;
-        }
-        std::string challenge;
-        challenge.assign((const char*)nonce, 16);
-        challenge += ui::StringConvert::TToUTF8(m_opt.password);
-        uint8_t digest[Sha256::kDigestSize];
-        Sha256::Hash(challenge, digest);
-        if (!SendFrame(m_fd, MsgType::Auth, digest, Sha256::kDigestSize)) {
-            FailNet(SDK_TR("client.networkError"));
-            return;
-        }
-    }
-
-    // ---- AuthResult ----
-    {
-        Frame result;
-        while (m_running) {
-            if (RecvFrame(m_fd, result, 500)) {
-                break;
+    if (!manualGranted) {
+        // ---- Auth (the challenge frame from the loop above is still in `frame`) ----
+        {
+            PayloadReader r(frame.payload.data(), frame.payload.size());
+            uint8_t nonce[16] = {0};
+            r.GetBytes(nonce, 16);
+            if (!r.Ok()) {
+                FailNet(SDK_TR("client.networkError"));
+                return;
             }
-            if (std::chrono::steady_clock::now() > phaseDeadline) {
-                FailNet(SDK_TR("client.timeout"));
+            std::string challenge;
+            challenge.assign((const char*)nonce, 16);
+            challenge += ui::StringConvert::TToUTF8(m_opt.password);
+            uint8_t digest[Sha256::kDigestSize];
+            Sha256::Hash(challenge, digest);
+            if (!SendFrame(m_fd, MsgType::Auth, digest, Sha256::kDigestSize)) {
+                FailNet(SDK_TR("client.networkError"));
                 return;
             }
         }
-        if (!m_running || result.type != MsgType::AuthResult) {
-            FailNet(SDK_TR("client.networkError"));
-            return;
-        }
-        PayloadReader r(result.payload.data(), result.payload.size());
-        const AuthResultCode code = (AuthResultCode)r.GetU8();
-        m_filePort = r.GetU16();
-        r.GetBytes(m_token, 32);
-        if (code == AuthResultCode::Ok) {
-            App::Instance().FileTx().SetSessionToken(m_token);
-        }
-        if (code != AuthResultCode::Ok) {
-            fprintf(stderr, "[client] auth result code=%d\n", (int)code);
-            fflush(stderr);
-            m_lastError = "auth rejected";
-            if (m_running) {
-                SetState(State::Failed,
-                         code == AuthResultCode::WrongPassword ? SDK_TR("client.authFailed")
-                                                              : SDK_TR("client.rejected"));
+
+        // ---- AuthResult ----
+        {
+            Frame result;
+            while (m_running) {
+                if (RecvFrame(m_fd, result, 500)) {
+                    break;
+                }
+                if (std::chrono::steady_clock::now() > phaseDeadline) {
+                    FailNet(SDK_TR("client.timeout"));
+                    return;
+                }
             }
-            m_running = false;
-            Socket::Close(m_fd);
-            m_fd = Socket::kInvalid;
-            return;
+            if (!m_running || result.type != MsgType::AuthResult) {
+                FailNet(SDK_TR("client.networkError"));
+                return;
+            }
+            PayloadReader r(result.payload.data(), result.payload.size());
+            const AuthResultCode code = (AuthResultCode)r.GetU8();
+            m_filePort = r.GetU16();
+            r.GetBytes(m_token, 32);
+            if (code == AuthResultCode::Ok) {
+                App::Instance().FileTx().SetSessionToken(m_token);
+            }
+            if (code != AuthResultCode::Ok) {
+                fprintf(stderr, "[client] auth result code=%d\n", (int)code);
+                fflush(stderr);
+                m_lastError = "auth rejected";
+                if (m_running) {
+                    SetState(State::Failed,
+                             code == AuthResultCode::WrongPassword ? SDK_TR("client.authFailed")
+                                                                  : SDK_TR("client.rejected"));
+                }
+                m_running = false;
+                Socket::Close(m_fd);
+                m_fd = Socket::kInvalid;
+                return;
+            }
         }
+
     }
 
     SetState(State::Connected, SDK_TR("client.connected_"));

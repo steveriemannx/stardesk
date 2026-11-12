@@ -179,6 +179,7 @@ void HostSession::RunImpl()
     const std::string password = ui::StringConvert::TToUTF8(cfg.password);
 
     // tell the client a manual-accept dialog is showing
+    bool manualGranted = false;
     if (cfg.manualAccept) {
         PayloadWriter w;
         w.PutString(ui::StringConvert::TToUTF8(App::GetHostName()));
@@ -201,6 +202,7 @@ void HostSession::RunImpl()
         fprintf(stderr, "[host] ask decision decided=%d accept=%d\n",
                 (int)m_askDecided, (int)m_askAccept);
         fflush(stderr);
+        manualGranted = m_askDecided && m_askAccept;
         if (!m_askDecided || !m_askAccept) {
             // rejected or timed out
             PayloadWriter w;
@@ -216,37 +218,58 @@ void HostSession::RunImpl()
         }
     }
 
-    // ---- 2. challenge ----
-    uint8_t nonce[16];
-    FillRandom(nonce, sizeof(nonce));
-    PayloadWriter w1;
-    w1.PutBytes(nonce, sizeof(nonce));
-    if (!SendFrame(m_threadFd, MsgType::Challenge, w1.Result())) {
-        CloseThreadFd();
-        m_running = false;
-        if (m_cb.onClosed) m_cb.onClosed();
-        return;
-    }
+    if (!manualGranted) {
+        // ---- 2. challenge ----
+        uint8_t nonce[16];
+        FillRandom(nonce, sizeof(nonce));
+        PayloadWriter w1;
+        w1.PutBytes(nonce, sizeof(nonce));
+        if (!SendFrame(m_threadFd, MsgType::Challenge, w1.Result())) {
+            CloseThreadFd();
+            m_running = false;
+            if (m_cb.onClosed) m_cb.onClosed();
+            return;
+        }
 
-    // ---- 3. auth ----
-    if (!RecvFrame(m_threadFd, frame, 10000) || frame.type != MsgType::Auth ||
-        frame.payload.size() != Sha256::kDigestSize) {
-        CloseThreadFd();
-        m_running = false;
-        if (m_cb.onClosed) m_cb.onClosed();
-        return;
-    }
+        // ---- 3. auth ----
+        if (!RecvFrame(m_threadFd, frame, 10000) || frame.type != MsgType::Auth ||
+            frame.payload.size() != Sha256::kDigestSize) {
+            CloseThreadFd();
+            m_running = false;
+            if (m_cb.onClosed) m_cb.onClosed();
+            return;
+        }
 
-    uint8_t expected[Sha256::kDigestSize];
-    {
-        std::string challenge;
-        challenge.assign((const char*)nonce, sizeof(nonce));
-        challenge += password;
-        Sha256::Hash(challenge, expected);
+        uint8_t expected[Sha256::kDigestSize];
+        {
+            std::string challenge;
+            challenge.assign((const char*)nonce, sizeof(nonce));
+            challenge += password;
+            Sha256::Hash(challenge, expected);
+        }
+        ok = std::memcmp(expected, frame.payload.data(), Sha256::kDigestSize) == 0;
+        fprintf(stderr, "[host] auth: password_len=%zu match=%d\n", password.size(), (int)ok);
+        if (!ok) {
+            // diagnostic: identify which password the client actually used
+            char nonceHex[33] = {0};
+            char digestHex[65] = {0};
+            for (int i = 0; i < 16; ++i) {
+                snprintf(nonceHex + i * 2, 3, "%02x", nonce[i]);
+            }
+            for (int i = 0; i < Sha256::kDigestSize; ++i) {
+                snprintf(digestHex + i * 2, 3, "%02x", frame.payload.data()[i]);
+            }
+            fprintf(stderr, "[host] auth-mismatch nonce=%s digest=%s\n", nonceHex, digestHex);
+        }
+        fflush(stderr);
+
     }
-    ok = std::memcmp(expected, frame.payload.data(), Sha256::kDigestSize) == 0;
-    fprintf(stderr, "[host] auth: password_len=%zu match=%d\n", password.size(), (int)ok);
-    fflush(stderr);
+    else {
+        ok = true;
+        // the user explicitly approved this connection: no password needed
+        fprintf(stderr, "[host] manual accept granted, password check skipped\n");
+        fflush(stderr);
+    }
 
     FillRandom(m_token, sizeof(m_token));
     if (ok) {
