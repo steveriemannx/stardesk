@@ -5,11 +5,14 @@
 
 #include "dui/dui.h"
 #include "dui/RenderSkia/HorizontalDrawText.h"
+#include "dui/RenderSkia/Font_Skia.h"
 
 #include "include/core/SkCanvas.h"
 #include "include/core/SkImageInfo.h"
 #include "include/core/SkPaint.h"
 #include "include/core/SkSurface.h"
+#include "include/core/SkTypeface.h"
+#include "include/core/SkFont.h"
 
 #include <cstdio>
 #include <cstdint>
@@ -20,6 +23,38 @@ namespace sdk {
 void RunTextProbe(const std::string& path)
 {
     using namespace ui;
+
+    // report which configured UI font families are actually installed, and
+    // which typeface dui ends up using as the default
+    {
+        ui::IFontMgr* pFontMgr = GlobalManager::Instance().GetRenderFactory() != nullptr
+            ? GlobalManager::Instance().GetRenderFactory()->GetFontMgr()
+            : nullptr;
+        if (pFontMgr != nullptr) {
+            const char* candidates[] = {"PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC",
+                                        "Helvetica Neue", "Arial", "Arial Unicode MS",
+                                        "Hiragino Sans GB", "Heiti SC", "Apple SD Gothic Neo",
+                                        "sans-serif"};
+            for (const char* name : candidates) {
+                fprintf(stderr, "[probe] font \"%s\": %s\n", name,
+                        pFontMgr->HasFontName(name) ? "installed" : "MISSING");
+            }
+        }
+        IFont* pDefaultFont = GlobalManager::Instance().Font().GetIFont("system_12", 100);
+        auto* pSkiaFont = dynamic_cast<ui::Font_Skia*>(pDefaultFont);
+        if (pSkiaFont != nullptr) {
+            const SkFont* pSkFont = pSkiaFont->GetFontHandle();
+            if (pSkFont != nullptr) {
+                sk_sp<SkTypeface> typeface =
+                    pSkFont->getTypeface() ? sk_ref_sp(pSkFont->getTypeface()) : nullptr;
+                if (typeface) {
+                    SkString familyName;
+                    typeface->getFamilyName(&familyName);
+                    fprintf(stderr, "[probe] default typeface family: %s\n", familyName.c_str());
+                }
+            }
+        }
+    }
 
     IFont* pFont = GlobalManager::Instance().Font().GetIFont("system_16", 100);
     if (pFont == nullptr) {

@@ -14,6 +14,8 @@
 #include "../ui/SettingsWindow.h"
 
 #include <algorithm>
+#include <functional>
+#include <memory>
 #include <chrono>
 #include <cstdio>
 #include <thread>
@@ -1314,6 +1316,72 @@ void MainWindow::OnThemeChanged()
 void MainWindow::OnLanguageChanged()
 {
     ApplyLanguage();
+}
+
+LRESULT MainWindow::OnPaintMsg(const ui::UiRect& rcPaint, const ui::NativeMsg& nativeMsg,
+                               bool& bHandled)
+{
+    LRESULT result = BaseClass::OnPaintMsg(rcPaint, nativeMsg, bHandled);
+
+    // developer hook: snapshot the real painted window (macOS UI verification)
+    static bool sCaptured = false;
+    if (!sCaptured) {
+        const char* snapshotPath = std::getenv("STARDESK_UI_SHOT");
+        if (snapshotPath != nullptr) {
+            sCaptured = true;
+            ui::UiRect rcClientRect;
+            GetClientRect(rcClientRect);
+            ui::UiRect rcWholeRect;
+            GetWindowRect(rcWholeRect);
+            fprintf(stderr, "[shot] client=%d x %d window=%d x %d\n",
+                    rcClientRect.Width(), rcClientRect.Height(),
+                    rcWholeRect.Width(), rcWholeRect.Height());
+            // dump every label with its rect so layout problems are visible
+            std::function<void(ui::Control*, int)> dumpControl = [&](ui::Control* pControl, int depth) {
+                if (pControl == nullptr) {
+                    return;
+                }
+                auto* pLabel = dynamic_cast<ui::Label*>(pControl);
+                const ui::UiRect rc = pControl->GetRect();
+                if (pLabel != nullptr) {
+                    fprintf(stderr, "[tree] %*s%s rect=%d,%d %dx%d text=\"%s\"\n", depth * 2, "",
+                            pControl->GetType().c_str(), rc.left, rc.top, rc.Width(),
+                            rc.Height(), pLabel->GetText().c_str());
+                }
+                auto* pBox = dynamic_cast<ui::Box*>(pControl);
+                if (pBox != nullptr) {
+                    for (size_t i = 0; i < pBox->GetItemCount(); ++i) {
+                        dumpControl(pBox->GetItemAt(i), depth + 1);
+                    }
+                }
+            };
+            dumpControl(GetRoot(), 0);
+            fflush(stderr);
+            fflush(stderr);
+            ui::IRender* pRender = GetRender();
+            if (pRender != nullptr) {
+                std::shared_ptr<ui::IBitmap> snapshot(pRender->MakeImageSnapshot());
+                if (snapshot) {
+                    const uint32_t width = snapshot->GetWidth();
+                    const uint32_t height = snapshot->GetHeight();
+                    void* pBits = snapshot->LockPixelBits();
+                    if (pBits != nullptr && width > 0 && height > 0) {
+                        FILE* pFile = std::fopen(snapshotPath, "wb");
+                        if (pFile != nullptr) {
+                            const uint32_t header[2] = {width, height};
+                            std::fwrite(header, sizeof(uint32_t), 2, pFile);
+                            std::fwrite(pBits, 1, (size_t)width * height * 4, pFile);
+                            std::fclose(pFile);
+                            fprintf(stderr, "[shot] %s (%ux%u)\n", snapshotPath, width, height);
+                        }
+                        snapshot->UnLockPixelBits();
+                    }
+                }
+            }
+            std::_Exit(0);
+        }
+    }
+    return result;
 }
 
 } // namespace sdk

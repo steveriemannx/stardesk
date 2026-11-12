@@ -31,6 +31,8 @@ public:
     // IAppListener (UI thread)
     virtual void OnThemeChanged() override;
     virtual void OnLanguageChanged() override;
+    virtual LRESULT OnPaintMsg(const ui::UiRect& rcPaint, const ui::NativeMsg& nativeMsg,
+                               bool& bHandled) override;
 
     /** Re-apply theme colors to the few controls that cache them. */
     void ApplyTheme();
