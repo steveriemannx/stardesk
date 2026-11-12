@@ -593,8 +593,14 @@ void MainWindow::OnInitWindow()
     };
     auto makeFieldLabel = [this](const char* key) {
         ThemeLabel* l = static_cast<ThemeLabel*>(MakeLabel(key, ThemeLabel::Role::Sub));
-        l->SetAttribute("width", "auto");
-        l->SetAttribute("margin", "0,0,2,0");
+        // fixed width + stretch height: all labels share the same slot so the
+        // input boxes line up, and the text stays vertically centred in the row.
+        // The slot does not change with the language (long translations simply
+        // ellipsize instead of moving the fields).
+        l->SetAttribute("width", "140");
+        l->SetAttribute("height", "stretch");
+        l->SetAttribute("text_align", "right,vcenter");
+        l->SetAttribute("margin", "0,0,8,0");
         return l;
     };
 
@@ -624,7 +630,7 @@ void MainWindow::OnInitWindow()
     m_remoteIpEdit->SetText("127.0.0.1");
     row1->AddItem(m_remoteIpEdit);
 
-    row1->AddItem(makeFieldLabel("client.port"));
+    row1->AddItem(makeFieldLabel("client.remotePort"));
     m_remotePortEdit = MakeEdit("client.port", false);
     m_remotePortEdit->SetText(ui::StringUtil::Printf("%d", (int)App::Instance().Config().port));
     m_remotePortEdit->SetAttribute("width", "70");
@@ -1499,6 +1505,9 @@ LRESULT MainWindow::OnPaintMsg(const ui::UiRect& rcPaint, const ui::NativeMsg& n
         std::thread([this]() {
             std::this_thread::sleep_for(std::chrono::milliseconds(3200));
             PostToUI(ui::UiBind(this, [this]() {
+                if (const char* shotLang = std::getenv("STARDESK_UI_SHOT_LANG")) {
+                    App::Instance().SetLanguage((Lang)std::atoi(shotLang));
+                }
                 if (std::getenv("STARDESK_UI_SHOT_TAB") != nullptr) {
                     const std::string tab = std::getenv("STARDESK_UI_SHOT_TAB");
                     if (tab == "file") {

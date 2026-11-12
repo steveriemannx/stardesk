@@ -109,6 +109,7 @@ const Entry kEntries[] = {
     E("client.openSettings", "打开系统设置", "開啟系統設定", "Open system settings", "システム設定を開く", "시스템 설정 열기", "Systemeinstellungen öffnen", "Ouvrir les réglages", "Открыть настройки системы"),
     E("client.showRemotePassword", "显示对方密码", "顯示對方密碼", "Show remote password", "相手のパスワードを表示", "상대 비밀번호 표시", "Remote-Passwort anzeigen", "Afficher le mot de passe distant", "Показать пароль удалённого"),
     E("client.hideRemotePassword", "隐藏对方密码", "隱藏對方密碼", "Hide remote password", "相手のパスワードを隠す", "상대 비밀번호 숨기기", "Remote-Passwort verbergen", "Masquer le mot de passe distant", "Скрыть пароль удалённого"),
+    E("client.remotePort", "对方端口", "對方埠", "Remote port", "相手のポート", "상대 포트", "Remote-Port", "Port distant", "Порт удалённого"),
     E("client.remotePassword", "对方密码", "對方密碼", "Remote password", "相手のパスワード", "상대 비밀번호", "Remote-Passwort", "Mot de passe distant", "Пароль удалённого"),
     E("client.searching", "正在搜索局域网设备…", "正在搜尋區域網設備…", "Searching for devices…", "デバイスを検索中…", "기기 검색 중…", "Geräte werden gesucht…", "Recherche d'appareils…", "Поиск устройств…"),
     E("host.listening", "正在监听端口 %d", "正在監聽埠 %d", "Listening on port %d", "ポート %d で待機中", "%d 포트에서 대기 중", "Warte auf Port %d", "En écoute sur le port %d", "Ожидание на порту %d"),

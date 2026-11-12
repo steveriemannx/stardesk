@@ -437,6 +437,10 @@ ThemeLabel::ThemeLabel(ui::Window* pWindow) : BaseClass(pWindow)
 {
     SetAttribute("font", "system_12");
     SetMouseEnabled(false);
+    // Labels are laid out in fixed slots (e.g. form field captions) that do not
+    // change with the language; drop the end-ellipsis so a slightly wider
+    // translation is clipped rather than shown as "...".
+    SetTextStyle(GetTextStyle() & ~ui::TEXT_END_ELLIPSIS, false);
 }
 
 void ThemeLabel::ApplyRoleColor()
