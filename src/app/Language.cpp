@@ -91,7 +91,7 @@ const Entry kEntries[] = {
     E("client.deviceAddress", "地址（IP 或主机名）", "位址（IP 或主機名）", "Address (IP or host)", "アドレス（IP またはホスト名）", "주소(IP 또는 호스트)", "Adresse (IP oder Host)", "Adresse (IP ou hôte)", "Адрес (IP или хост)"),
     E("client.deviceAddressRequired", "请填写地址", "請填寫位址", "Address is required", "アドレスを入力してください", "주소를 입력하세요", "Adresse fehlt", "Adresse requise", "Укажите адрес"),
     E("client.devicePortInvalid", "端口无效（1-65535）", "埠無效（1-65535）", "Invalid port (1-65535)", "ポートが無効です（1-65535）", "잘못된 포트(1-65535)", "Ungültiger Port (1-65535)", "Port invalide (1-65535)", "Неверный порт (1-65535)"),
-    E("client.deviceDoubleClickHint", "双击设备可直接连接", "雙擊設備可直接連線", "Double-click a device to connect", "デバイスをダブルクリックで接続", "기기를 더블클릭하면 연결", "Gerät doppelklicken zum Verbinden", "Double-cliquez pour vous connecter", "Двойной щелчок — подключиться"),
+    E("client.deviceDoubleClickHint", "点击设备填入地址和端口", "點擊設備填入位址和埠", "Click a device to fill in its address and port", "デバイスをクリックしてアドレスとポートを入力", "기기를 클릭하면 주소와 포트가 입력됨", "Gerät anklicken, um Adresse und Port zu übernehmen", "Cliquez sur un appareil pour remplir l'adresse et le port", "Щёлкните устройство, чтобы подставить адрес и порт"),
     E("client.connecting", "正在连接…", "正在連接…", "Connecting…", "接続中…", "연결 중…", "Verbinde…", "Connexion…", "Подключение…"),
     E("client.connected_", "已连接", "已連接", "Connected", "接続済み", "연결됨", "Verbunden", "Connecté", "Подключено"),
     E("client.waitingAccept", "等待对方接受…", "等待對方接受…", "Waiting for acceptance…", "相手の承認待ち…", "상대 수락 대기 중…", "Warte auf Bestätigung…", "En attente d'acceptation…", "Ожидание подтверждения…"),
