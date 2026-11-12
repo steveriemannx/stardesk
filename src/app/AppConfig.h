@@ -30,6 +30,8 @@ struct AppConfig {
     std::string deviceName;        // device name shown to peers
     /** LAN peers hidden from the discovery list ("ip:port" strings). */
     std::vector<std::string> hiddenDevices;
+    /** Devices added by hand: pair<name, "ip:port"> (persisted). */
+    std::vector<std::pair<std::string, std::string>> manualDevices;
     bool headless = false;      // host without creating a local control window
 
     // test/automation hooks (env STARDESK_AUTO_* takes precedence):

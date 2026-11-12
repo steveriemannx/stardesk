@@ -195,6 +195,24 @@ void AppConfig::Load()
                 pos = sep + 1;
             }
         }
+        manualDevices.clear();
+        {
+            const std::string packed = ui::StringConvert::TToUTF8(getStr("manual_devices"));
+            size_t pos = 0;
+            while (pos < packed.size()) {
+                const size_t sep = packed.find(';', pos);
+                const std::string item =
+                    packed.substr(pos, sep == std::string::npos ? std::string::npos : sep - pos);
+                const size_t bar = item.find('|');
+                if (bar != std::string::npos && bar + 1 < item.size()) {
+                    manualDevices.emplace_back(item.substr(0, bar), item.substr(bar + 1));
+                }
+                if (sep == std::string::npos) {
+                    break;
+                }
+                pos = sep + 1;
+            }
+        }
         headless = getInt("headless", 0) != 0;
         autoHost = getStr("auto_host");
         autoPort = getInt("auto_port", 0);
@@ -249,6 +267,18 @@ void AppConfig::Save() const
     add(ui::StringUtil::Printf("view_only=%d\n", viewOnly ? 1 : 0));
     add(ui::StringUtil::Printf("cursor_mode=%d\n", cursorMode));
     add("device_name="); add(deviceName); add("\n");
+    if (!manualDevices.empty()) {
+        std::string packed;
+        for (size_t i = 0; i < manualDevices.size(); ++i) {
+            if (i != 0) {
+                packed += ';';
+            }
+            packed += manualDevices[i].first;
+            packed += '|';
+            packed += manualDevices[i].second;
+        }
+        add("manual_devices="); add(packed); add("\n");
+    }
     {
         std::string packed;
         for (size_t i = 0; i < hiddenDevices.size(); ++i) {

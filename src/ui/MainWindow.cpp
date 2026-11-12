@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 
+#include "AddDeviceWindow.h"
 #include "../app/AppConfig.h"
 #include "../app/Language.h"
 #include "../app/Theme.h"
@@ -22,6 +23,7 @@
 #include <chrono>
 #include <cstdio>
 #include <thread>
+#include <unordered_set>
 #include <cstdlib>
 #include <string>
 
@@ -581,6 +583,7 @@ void MainWindow::OnInitWindow()
     ThemeLabel* devicesTitle = static_cast<ThemeLabel*>(MakeLabel("client.devices", ThemeLabel::Role::Title));
     devicesTitle->SetAttribute("height", "22");
     devicesTitle->SetAttribute("width", "stretch");
+    m_lang.BindToolTip(devicesTitle, "client.deviceDoubleClickHint");
     devicesHead->AddItem(devicesTitle);
 
     m_manageBtn = new PillButton(this);
@@ -591,6 +594,36 @@ void MainWindow::OnInitWindow()
         ToggleManageDevices();
         return true;
     });
+    PillButton* addDeviceBtn = new PillButton(this);
+    addDeviceBtn->SetAttribute("width", "auto");
+    addDeviceBtn->SetAttribute("padding", "10,0,10,0");
+    addDeviceBtn->SetAttribute("height", "22");
+    addDeviceBtn->SetToolTipText(SDK_TR("client.addDeviceTitle"));
+    m_lang.SetText(addDeviceBtn, "client.addDevice");
+    addDeviceBtn->AttachClick([this](const ui::EventArgs&) {
+        AddDeviceWindow* dlg = new AddDeviceWindow(
+            [this](const std::string& name, const std::string& ip, int port) {
+                AppConfig& cfg = App::Instance().Config();
+                const std::string ipPort = ip + ":" + std::to_string(port);
+                const std::string label = name.empty() ? ip : name;
+                for (auto& dev : cfg.manualDevices) {
+                    if (dev.second == ipPort) {
+                        dev.first = label; // update the name of an existing entry
+                        cfg.Save();
+                        SetLanDevices(m_lastLanDevices);
+                        return;
+                    }
+                }
+                cfg.manualDevices.emplace_back(label, ipPort);
+                cfg.Save();
+                SetLanDevices(m_lastLanDevices);
+            });
+        dlg->CreateWnd(this, ui::WindowCreateParam("StarDesk", true));
+        dlg->ShowWindow(ui::kSW_SHOW_NORMAL);
+        dlg->SetWindowForeground();
+        return true;
+    });
+    devicesHead->AddItem(addDeviceBtn);
     devicesHead->AddItem(m_manageBtn);
     UpdateManageButton();
 
@@ -1321,10 +1354,20 @@ void MainWindow::SetLanDevices(const std::vector<std::pair<std::string, std::str
         return false;
     };
 
+    // manually added devices come first and survive discovery updates
+    std::unordered_set<std::string> manualIpPorts;
     std::vector<std::pair<std::string, std::string>> visible;
-    visible.reserve(nameIpPorts.size());
+    visible.reserve(nameIpPorts.size() + App::Instance().Config().manualDevices.size());
+    for (const auto& manual : App::Instance().Config().manualDevices) {
+        if (m_hiddenDevices.count(manual.second) != 0) {
+            continue;
+        }
+        manualIpPorts.insert(manual.second);
+        visible.emplace_back(manual.first, manual.second);
+    }
     for (const auto& nameIp : nameIpPorts) {
-        if (m_hiddenDevices.count(nameIp.second) != 0 || isSelf(nameIp.second)) {
+        if (m_hiddenDevices.count(nameIp.second) != 0 || isSelf(nameIp.second) ||
+            manualIpPorts.count(nameIp.second) != 0) {
             continue;
         }
         visible.push_back(nameIp);
@@ -1358,24 +1401,49 @@ void MainWindow::SetLanDevices(const std::vector<std::pair<std::string, std::str
             removeBtn->SetAttribute("width", "22");
             removeBtn->SetAttribute("height", "22");
             const std::string ipPort = nameIp.second;
-            removeBtn->AttachClick([this, ipPort](const ui::EventArgs&) {
-                HideDevice(ipPort);
+            const bool manual = manualIpPorts.count(ipPort) != 0;
+            removeBtn->AttachClick([this, ipPort, manual](const ui::EventArgs&) {
+                if (manual) {
+                    AppConfig& cfg = App::Instance().Config();
+                    for (auto it = cfg.manualDevices.begin(); it != cfg.manualDevices.end(); ++it) {
+                        if (it->second == ipPort) {
+                            cfg.manualDevices.erase(it);
+                            break;
+                        }
+                    }
+                    cfg.Save();
+                    SetLanDevices(m_lastLanDevices);
+                }
+                else {
+                    HideDevice(ipPort);
+                }
                 return true;
             });
             row->AddItem(removeBtn);
         }
 
         const std::string ipPort = nameIp.second;
-        row->AttachClick([this, ipPort](const ui::EventArgs&) {
-            if (m_manageDevices) {
-                return true; // managing: row clicks do not start a connection
-            }
-            // "ip:port" -> fill both fields
+        // single click fills IP/port, double click fills and connects
+        auto fillFromRow = [this, ipPort]() {
             const size_t colon = ipPort.find((':'));
             m_remoteIpEdit->SetText(ipPort.substr(0, colon));
             if (colon != std::string::npos) {
                 m_remotePortEdit->SetText(ipPort.substr(colon + 1));
             }
+        };
+        row->AttachClick([this, fillFromRow](const ui::EventArgs&) {
+            if (m_manageDevices) {
+                return true; // managing: row clicks do not start a connection
+            }
+            fillFromRow();
+            return true;
+        });
+        row->AttachDoubleClick([this, fillFromRow](const ui::EventArgs&) {
+            if (m_manageDevices) {
+                return true;
+            }
+            fillFromRow();
+            OnConnectClicked();
             return true;
         });
         m_deviceList->AddItem(row);
@@ -1631,6 +1699,13 @@ LRESULT MainWindow::OnPaintMsg(const ui::UiRect& rcPaint, const ui::NativeMsg& n
             PostToUI(ui::UiBind(this, [this]() {
                 if (std::getenv("STARDESK_UI_SHOT_DARK") != nullptr) {
                     App::Instance().SetTheme(true);
+                }
+                if (std::getenv("STARDESK_UI_SHOT_ADDDEVICE") != nullptr) {
+                    AddDeviceWindow* dlg = new AddDeviceWindow(
+                        [](const std::string&, const std::string&, int) {});
+                    dlg->CreateWnd(this, ui::WindowCreateParam("StarDesk", true));
+                    dlg->ShowWindow(ui::kSW_SHOW_NORMAL);
+                    dlg->SetWindowForeground();
                 }
                 if (const char* shotLang = std::getenv("STARDESK_UI_SHOT_LANG")) {
                     App::Instance().SetLanguage((Lang)std::atoi(shotLang));
