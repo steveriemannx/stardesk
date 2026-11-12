@@ -1,157 +1,205 @@
-# StarDesk 远程控制
+# StarDesk Remote Desktop
 
-基于 dui(纯代码模式)的局域网远程控制软件,类似 ToDesk / 向日葵。所有界面与素材均为代码绘制(无 XML、无图片资源、无 CEF/Web)。
+**English** | [简体中文](README.zh-CN.md)
 
-## 功能
+A LAN remote-desktop tool built on [dui](https://github.com/steveriemannx/dui) in
+pure-code mode, similar to ToDesk / AnyDesk. Every window and asset is drawn by
+code: no XML layouts, no image resources, no CEF/Web.
 
-- **屏幕共享**:复制(镜像主屏)/ 拓展(多显示器拼接一个画布)两种模式
-- **画面传输**:64×64 瓦片增量检测 + PNG 压缩(dui 自带的 libwebp 无编码器,阶段一用 PNG),支持 原始 / 720p / 1080p 分辨率与 24 / 30 / 60 fps
-- **键盘鼠标控制**:macOS CGEventPost(需辅助功能权限)/ Windows SendInput / Linux·FreeBSD XTest
-- **观看模式**:只观看画面,不注入输入(主机端强制)
-- **文件传输**:独立 TCP 通道 + 会话令牌,拖拽或文件对话框选择,双向传输,进度显示
-- **连接认证**:SHA-256 挑战应答(密码不明文传输);自动接受或每次手动确认(弹窗)。
-  **手动确认模式不需要密码**——主控端连接后,被控端点「允许」即为授权;自动接受
-  模式仍然校验密码
-- **局域网发现**:UDP 广播 beacon,设备列表一键填入
-- **亮/暗主题 + 8 种语言**(简体中文、繁體中文、English、日本語、한국어、Deutsch、Français、Русский)
-- **远程窗口全屏**(按钮 / ESC 退出)、适应窗口 / 原始大小、帧率与延迟显示
+## Features
 
-## 构建
+- **Screen sharing**: mirror mode (primary display) or extend mode (multiple
+  monitors stitched into one canvas)
+- **Video transport**: 64×64 tile diffing + PNG compression (dui's bundled
+  libwebp has no encoder, so PNG is used in this phase); original / 720p / 1080p
+  resolution and 24 / 30 / 60 fps
+- **Keyboard & mouse control**: macOS `CGEventPost` (requires Accessibility
+  permission) / Windows `SendInput` / Linux · FreeBSD XTest
+- **View-only mode**: watch the screen without input injection (enforced by the
+  host)
+- **File transfer**: separate TCP channel with a session token, drag-and-drop or
+  file dialog, bidirectional transfer with progress
+- **Connection authentication**: SHA-256 challenge/response (the password is
+  never sent in clear text); auto-accept or manual confirmation dialog per
+  connection.
+  **Manual confirmation needs no password** — once the host user clicks
+  "Allow", the connection is authorized; auto-accept mode still verifies the
+  password.
+- **LAN discovery**: UDP broadcast beacons, one-click fill from the device list;
+  devices outside the subnet can be added manually (name/IP/port, persisted)
+- **Light/dark theme + 8 languages** (Simplified Chinese, Traditional Chinese,
+  English, Japanese, Korean, German, French, Russian)
+- **Remote window fullscreen** (button / ESC to exit), fit-to-window /
+  original size, frame-rate and latency readout
+- **Reverse remote assistance**: on the machine that wants to be controlled,
+  select a known device and click "Request help"; the peer gets a confirmation
+  dialog and then connects back with a one-time token (no password needed)
 
-StarDesk 是独立工程(本目录)。构建时需要一份 dui 源码树,用 CMake 变量
-`DUI_SRC_ROOT_DIR` 指定;默认指向同级的 `../dui`(最新 dui main:原生后端
-+ UTF-8 字符串 API,已不含 SDL 后端)。
+## Building
+
+StarDesk is a standalone project (this directory). A dui source tree is required
+at build time; point CMake variable `DUI_SRC_ROOT_DIR` at it — it defaults to the
+sibling `../dui` (current dui main: native backends + UTF-8 string API, SDL
+backend removed).
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
-      -DDUI_SRC_ROOT_DIR=/Users/steveriemannx/projects-main/dui
+      -DDUI_SRC_ROOT_DIR=/path/to/dui
 cmake --build build --target stardesk -j 8
 open build/bin/stardesk.app
 ```
 
-指定目录里的 dui 会作为子项目**在本工程的 build 目录里一起编译**(只构建库,不构建
-dui 的 examples / tests / CEF;Skia 使用预编译静态库)。所以构建目标是 `stardesk`,
-但依赖的 dui 库(`libdui.a`,约 340 个对象)也在同一个 build 树里 —— 第一次是全量,
-之后**只有改动过的文件会重新编译**。实测(macOS / 8 核):
+The dui tree is compiled as a sub-project **inside this project's build
+directory** (library only — no dui examples / tests / CEF; Skia is used as a
+prebuilt static library). The build target is therefore `stardesk`, but the dui
+library (`libdui.a`, ~340 objects) lives in the same build tree: the first build
+is full, afterwards **only changed files are recompiled**. Measured on macOS /
+8 cores:
 
-| 场景 | 耗时 |
-|------|------|
-| 什么都没有改(no-op) | ~1.8s |
-| 改了 1 个 stardesk 源文件 | ~3-4s |
-| 改了 1 个 dui 源文件 | ~3s |
-| 改了 dui 的公共头(被大量文件包含) | 会重编较多文件,几十秒 |
+| Scenario | Time |
+|----------|------|
+| Nothing changed (no-op) | ~1.8 s |
+| One stardesk source file changed | ~3–4 s |
+| One dui source file changed | ~3 s |
+| A dui public header changed (included everywhere) | many files, tens of seconds |
 
-本地 build 目录已配置 **ccache**(`CMAKE_CXX_COMPILER_LAUNCHER`),清理后或大范围重编
-时命中缓存会快很多。
+The local build directory is configured with **ccache**
+(`CMAKE_CXX_COMPILER_LAUNCHER`), so clean or large rebuilds are much faster.
 
-### macOS 安装（权限）
+### macOS installation (permissions)
 
-macOS 的「隐私与安全性」列表只方便添加 `*.app` 包，推荐把构建产物安装到
-`/Applications` 再授权：
-
-```bash
-./scripts/setup-signing.sh   # 首次:创建本地自签名代码签名身份(只做一次)
-./scripts/install-macos.sh   # 安装到 /Applications/StarDesk.app 并启动
-```
-
-**为什么要 `setup-signing.sh`**:ad-hoc 签名每次编译都会变,macOS 会因此把
-屏幕录制/辅助功能授权作废,每次重建都要重新勾选。用固定的本地签名身份后,
-签名不再变化,权限可以一直保留(首次仍需授权一次)。
-
-然后再到 **系统设置 → 隐私与安全性 → 辅助功能 / 屏幕录制** 里勾选 StarDesk
-（没有条目时点 "+" → Cmd+Shift+G → 输入 `/Applications` → 选 StarDesk.app）。
-注意每次重新编译后 ad-hoc 签名会变化，权限可能需要重新勾选（重跑上面的脚本即可）。
-
-### 构建/部署脚本
+The macOS Privacy & Security panes only let you add an `.app` bundle, so install
+the build output into `/Applications` and grant permissions there:
 
 ```bash
-./scripts/build-deploy.sh            # 只编译本地 mac 端
-./scripts/build-deploy.sh --host     # 本地编译 + 同步并重建 Linux 主机 + 重启服务
+./scripts/setup-signing.sh   # first time only: create a local self-signed code-signing identity
+./scripts/install-macos.sh   # install to /Applications/StarDesk.app and launch
 ```
 
-`--host` 用 rsync 只传改动的源文件(保留 mtime,远端只重编改过的文件),实测一次
-「改 1 个文件 → 同步 → 主机重编 → 重启」约 **10-13 秒**,而以前"每次 touch 全部源码"
-的方式要 60-90 秒。主机地址/目录可用 `STARDESK_HOST`、`STARDESK_HOST_DIR` 覆盖。
+**Why `setup-signing.sh`?** An ad-hoc signature changes with every build, and
+macOS then invalidates the Screen Recording / Accessibility grants (you would
+have to re-tick them after each rebuild). With a fixed local signing identity
+the signature is stable and the grants persist (still authorized once the first
+time).
 
-如果要把本目录放回 dui 树里构建,直接拷成 `<dui>/examples/stardesk`(不要传
-`DUI_SRC_ROOT_DIR`,它会自动识别 `../..` 为 dui 源码树)。
+Then enable StarDesk in **System Settings → Privacy & Security → Accessibility /
+Screen Recording** (if it is not listed yet: click "+" → Cmd+Shift+G → type
+`/Applications` → select StarDesk.app).
 
-### 平台要求
+### Build / deploy scripts
 
-| 平台 | 要求 |
-|------|------|
-| macOS | **14.0+**(ScreenCaptureKit);屏幕录制权限(画面)、辅助功能权限(远程输入)。当前验证平台 |
-| Windows | 7 / 10 / 11(原生 Win32);源码保留,构建尚未验证 |
-| Linux / FreeBSD | 原生 X11/Wayland 后端;源码保留,构建尚未验证 |
+```bash
+./scripts/build-deploy.sh            # build the local macOS app only
+./scripts/build-deploy.sh --host     # build + rsync to the Linux host, rebuild and restart it
+```
 
-macOS 权限:系统设置 → 隐私与安全性 → 屏幕录制 / 辅助功能,勾选 StarDesk(或运行它的终端)。
-未授予屏幕录制权限时,主机自动切换到内置「测试画面」以验证链路,并在状态栏提示。
+`--host` uses rsync so only changed sources are transferred (mtimes preserved;
+the remote build recompiles only what changed). A "change one file → sync →
+host build → restart" cycle takes about **10–13 s**, versus 60–90 s with the old
+"touch every source file" approach. Override the host with `STARDESK_HOST` /
+`STARDESK_HOST_DIR`.
 
-## 使用
+To build this directory inside the dui tree instead, copy it to
+`<dui>/examples/stardesk` and omit `DUI_SRC_ROOT_DIR` (it then automatically
+detects `../..` as the dui source tree).
 
-1. 启动两台机器上的 StarDesk(同一局域网 / 热点)。
-2. **被控端**:左侧面板查看本机密码;可切换「自动接受 / 每次手动确认」与「复制 / 拓展」共享模式。
-3. **控制端**:右侧「远程控制」标签,输入对端 IP 与密码(或点击发现列表中的设备),选择 控制/观看、分辨率、帧率,点「连接」。
-4. 连接成功后进入远程窗口:适应窗口 / 原始大小 / 全屏 / 发送文件 / 断开。
-5. 「文件」标签:一个「发送文件」按钮打开发送窗口(拖拽或浏览);接收的文件默认存到 `~/Downloads/StarDesk/`(可在配置文件修改)。
+### Platform requirements
 
-## 配置
+| Platform | Requirements |
+|----------|--------------|
+| macOS | **14.0+** (ScreenCaptureKit); Screen Recording permission (video), Accessibility permission (remote input). Currently the validated platform |
+| Windows | 7 / 10 / 11 (native Win32); sources kept, build not validated yet |
+| Linux / FreeBSD | Native X11/Wayland backends; sources kept, build not validated yet |
 
-配置文件 `~/.stardesk.conf`(UTF-8,key=value):
+macOS permissions: System Settings → Privacy & Security → Screen Recording /
+Accessibility, tick StarDesk (or the terminal that launched it). Without Screen
+Recording permission the host automatically falls back to the built-in "test
+pattern" so the link can still be verified, and says so in the status line.
+
+## Usage
+
+1. Start StarDesk on both machines (same LAN / hotspot).
+2. **Host side**: the left panel shows this machine's password; switch between
+   "auto accept / manual confirm" and "mirror / extend" sharing mode.
+3. **Client side**: the "Remote control" tab on the right — enter the peer IP and
+   password (or click a device in the discovery list), choose control/view,
+   resolution and frame rate, then click "Connect".
+4. After connecting, the remote window opens: fit to window / original size /
+   fullscreen / send file / disconnect.
+5. "Files" tab: a "Send file" button opens the transfer window (drag-and-drop or
+   browse); received files go to `~/Downloads/StarDesk/` by default (configurable).
+
+## Configuration
+
+Config file `~/.stardesk.conf` (UTF-8, `key=value`):
 
 ```
-password=12345678      # 连接密码(界面可随机生成)
-port=7456              # 主端口(文件端口 = 主端口 + 1)
-manual_accept=0        # 1 = 每次手动确认
-extend_screen=0        # 1 = 拓展(多屏拼接)
-receive_dir=           # 文件接收目录(空 = ~/Downloads/StarDesk)
+password=12345678      # connection password (the UI can generate a random one)
+port=7456              # main port (the file port is the main port + 1)
+manual_accept=0        # 1 = ask for manual confirmation on every connection
+extend_screen=0        # 1 = extend mode (multi-monitor canvas)
+receive_dir=           # file receive directory (empty = ~/Downloads/StarDesk)
 dark_theme=1
-language=0             # 0-7,对应 8 种内置语言
-want_fps=30            # 控制端默认帧率
-want_res=0             # 0=原始 1=720p 2=1080p
-device_name=           # 设备名(默认主机名)
-headless=0             # 1 = 被控端无窗口运行，自动接受连接
+language=0             # 0-7, one of the 8 built-in languages
+want_fps=30            # default frame rate on the client side
+want_res=0             # 0=original 1=720p 2=1080p
+device_name=           # device name (defaults to the host name)
+headless=0             # 1 = run the host without a local window, auto-accept connections
 ```
 
-### 无头被控端
+### Headless host
 
-没有显示器的 Linux/FreeBSD 机器可使用无头模式启动被控端：
+A Linux/FreeBSD machine without a monitor can run the host in headless mode:
 
 ```bash
 STARDESK_HEADLESS=1 ./bin/stardesk
 ```
 
-也可以在 `~/.stardesk.conf` 中设置 `headless=1`，再通过 systemd、rc.d
-或其他启动管理器开机启动。该模式不创建本地控制窗口，但仍监听端口并自动
-接受连接；控制端使用 `auto_host`、`auto_port` 和 `auto_password` 可在启动
-后自动连接。
+You can also set `headless=1` in `~/.stardesk.conf` and start it from systemd,
+rc.d or another init system. This mode creates no local control window but still
+listens on the port and accepts connections automatically; the client can use
+`auto_host`, `auto_port` and `auto_password` to connect right after startup.
 
-“无头”指没有物理显示器，不是没有桌面会话。远程端必须先启动真实桌面或
-虚拟显示会话（例如 Xvfb/Xorg 虚拟输出，或已登录的 Wayland/Portal 会话），
-桌面应用照常运行，StarDesk 从该会话采集真实画面。没有可用显示会话时无法
-查看真实桌面，内置测试画面只能用于验证网络链路。
+"Headless" means no physical monitor, not no desktop session. The remote side
+must still have a real desktop or a virtual display session running (for
+example an Xvfb/Xorg virtual output, or a logged-in Wayland/Portal session) —
+GUI applications run as usual and StarDesk captures the real screen from that
+session. Without a usable display session there is no real desktop to show; the
+built-in test pattern only proves the network path.
 
-## 协议简述
+## Protocol overview
 
-二进制帧 `[magic "SDK1"][type u8][len u32][payload]`(小端)。认证:
-`Hello → Challenge{nonce} → Auth{SHA256(nonce‖password)} → AuthResult{ok, filePort, token}`。
-画面流:`ScreenInit{宽高}` + `ScreenTile{x,y,w,h,png}` + `ScreenEnd`(帧结束标记,客户端仅在收到后渲染,避免快速滑动时瓦片拼接)+ `CursorPos{归一化坐标}`。
-输入:`InputEvent{kind, 归一化坐标/键码/修饰键}`。文件通道:独立 TCP(端口+1),
-首帧 `FileAuth{token}`,随后 `FileStart/FileAccept/FileChunk/FileEnd/FileDone/FileAbort`。
-心跳 3s Ping/Pong,15s 无响应断开。画面流阶段一不加密(局域网使用,README 说明)。
+Binary frame: `[magic "SDK1"][type u8][len u32][payload]` (little endian).
+Authentication:
+`Hello → Challenge{nonce} → Auth{SHA256(nonce‖password)} → AuthResult{ok, filePort, token}`.
+Video stream: `ScreenInit{width,height}` + `ScreenTile{x,y,w,h,png}` + `ScreenEnd`
+(end-of-frame marker; the client renders only after it, so tiles from two frames
+never mix during fast scrolling) + `CursorPos{normalized coordinates}`.
+Input: `InputEvent{kind, normalized coordinates / key code / modifiers}`.
+File channel: separate TCP port (main port + 1), first frame `FileAuth{token}`,
+then `FileStart/FileAccept/FileChunk/FileEnd/FileDone/FileAbort`.
+Heartbeat is Ping/Pong every 3 s; the connection drops after 15 s without a
+response. The video stream is unencrypted in this phase (LAN use; documented
+here).
 
-## 已知限制(阶段一)
+## Known limitations (phase one)
 
-- 画面流不加密;Linux 仅 X11;macOS 需 14+;一次一个控制会话
-- PNG 编码对彩色界面带宽较高(瓦片增量已大幅缓解);后续可接入完整 libwebp/JPEG
-- 采集:SCStream 连续流(60fps,镜像模式);多显示器拓展模式仍为单帧采集(约 5 fps)
-- 全屏大幅变化(如视频)时 PNG 编码 + 带宽会限制帧率(1080p 局域网下约 30fps 内)
-- 多显示器「拓展」模式在 macOS 上为并集画布(副屏布局差异未做坐标补偿)
+- The video stream is unencrypted; Linux is X11-only; macOS needs 14+; one
+  control session at a time
+- One-time tokens for reverse assistance expire after 120 s and can be used once
+- PNG encoding is bandwidth-hungry on colourful screens (tile diffing mitigates
+  most of it); a full libwebp/JPEG encoder can be plugged in later
+- Capture: SCStream continuous stream (60 fps, mirror mode); multi-monitor extend
+  mode still captures single frames (~5 fps)
+- Large full-screen changes (e.g. video) are limited by PNG encoding + bandwidth
+  (about 30 fps at 1080p on a LAN)
+- Multi-monitor "extend" mode on macOS is a union canvas (secondary-display
+  layout differences are not compensated)
 
-## 迁移到独立仓库
+## Moving to a standalone repository
 
-本目录是一个独立的 git 仓库(嵌套在 dui 的 examples/ 下),不依赖 dui 的构建之外
-的任何资源文件。迁移:
+This directory is its own git repository (nested under dui's `examples/`), and it
+does not depend on any resource file outside dui's build. To move it:
 
 ```bash
 cd examples/stardesk
@@ -159,4 +207,5 @@ git remote add origin git@github.com:<your>/stardesk.git
 git push -u origin main
 ```
 
-独立构建时需提供 dui 与 Skia 的库和头文件(把 `DUI_SRC_ROOT_DIR` 指向 dui 仓库根目录即可)。
+A standalone build needs dui and Skia libraries and headers (just point
+`DUI_SRC_ROOT_DIR` at the dui repository root).
