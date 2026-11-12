@@ -1326,6 +1326,67 @@ bool Capturer::Start(bool extend)
     return true;
 }
 
+
+namespace {
+
+// Ask org.gnome.Mutter.DisplayConfig for the first physical monitor connector
+// (e.g. "HDMI-1"). RecordMonitor needs it; a virtual monitor would only show
+// the shell background, never the application windows.
+bool QueryPrimaryConnector(DBusConnection* conn, std::string& connector)
+{
+    DBusError err;
+    dbus_error_init(&err);
+    DBusMessage* call = dbus_message_new_method_call(
+        "org.gnome.Mutter.DisplayConfig", "/org/gnome/Mutter/DisplayConfig",
+        "org.gnome.Mutter.DisplayConfig", "GetCurrentState");
+    if (call == nullptr) {
+        return false;
+    }
+    DBusMessage* reply = dbus_connection_send_with_reply_and_block(conn, call, 3000, &err);
+    dbus_message_unref(call);
+    if (reply == nullptr) {
+        fprintf(stderr, "[capture] DisplayConfig.GetCurrentState failed: %s\n",
+                err.message ? err.message : "unknown");
+        dbus_error_free(&err);
+        return false;
+    }
+    bool ok = false;
+    DBusMessageIter it;
+    // (u serial, a((ssss)a(siiddas)sa{sv}) monitors, a{sv} logical monitors)
+    const bool haveArgs = dbus_message_iter_init(reply, &it);
+    if (haveArgs && dbus_message_iter_get_arg_type(&it) == DBUS_TYPE_UINT32) {
+        // (u serial, a((ssss)a(siiddas)sa{sv}) monitors, ...): each monitor is
+        // a struct whose first member is the (connector, vendor, product,
+        // serial) struct.
+        dbus_message_iter_next(&it);
+        if (dbus_message_iter_get_arg_type(&it) == DBUS_TYPE_ARRAY) {
+            DBusMessageIter monitors;
+            dbus_message_iter_recurse(&it, &monitors);
+            if (dbus_message_iter_get_arg_type(&monitors) == DBUS_TYPE_STRUCT) {
+                DBusMessageIter monitor;
+                dbus_message_iter_recurse(&monitors, &monitor);
+                if (dbus_message_iter_get_arg_type(&monitor) == DBUS_TYPE_STRUCT) {
+                    DBusMessageIter ids;
+                    dbus_message_iter_recurse(&monitor, &ids);
+                    if (dbus_message_iter_get_arg_type(&ids) == DBUS_TYPE_STRING) {
+                        const char* name = nullptr;
+                        dbus_message_iter_get_basic(&ids, &name);
+                        if (name != nullptr && name[0] != '\0') {
+                            connector = name;
+                            ok = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    dbus_message_unref(reply);
+    fprintf(stderr, "[capture] monitor connector: %s\n", ok ? connector.c_str() : "(none found)");
+    return ok;
+}
+
+} // namespace
+
 // GNOME/mutter direct ScreenCast: talk to org.gnome.Mutter.ScreenCast
 // directly instead of the portal. No permission dialog, no restore_data -
 // the stream's pipewire node id arrives via the "PipeWireStreamAdded"
@@ -1403,65 +1464,109 @@ bool Capturer::StartMetaCast(bool extend)
     }
     dbus_message_unref(reply);
 
-    // 3. Session.RecordVirtual({width,height,refresh-rate}) -> (o) stream path
-    //     Request a virtual monitor at the desired resolution (1920x1080) so
-    //     the remote desktop has real estate independent of the physical
-    //     display (which on this host only exposes 1024x768).
-    call = dbus_message_new_method_call(
-        "org.gnome.Mutter.ScreenCast", session.c_str(),
-        "org.gnome.Mutter.ScreenCast.Session", "RecordVirtual");
-    dbus_message_iter_init_append(call, &args);
-    dbus_message_iter_open_container(&args, DBUS_TYPE_ARRAY, "{sv}", &dict);
-    {
-        DBusMessageIter entry, var;
-        const uint32_t vw = 1920, vh = 1080;
-        const double vr = 60.0;
-        // width: u
-        dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, nullptr, &entry);
-        const char* kw = "width";
-        dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &kw);
-        dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT, "u", &var);
-        dbus_message_iter_append_basic(&var, DBUS_TYPE_UINT32, &vw);
-        dbus_message_iter_close_container(&entry, &var);
-        dbus_message_iter_close_container(&dict, &entry);
-        // height: u
-        dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, nullptr, &entry);
-        kw = "height";
-        dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &kw);
-        dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT, "u", &var);
-        dbus_message_iter_append_basic(&var, DBUS_TYPE_UINT32, &vh);
-        dbus_message_iter_close_container(&entry, &var);
-        dbus_message_iter_close_container(&dict, &entry);
-        // refresh-rate: d
-        dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, nullptr, &entry);
-        kw = "refresh-rate";
-        dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &kw);
-        dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT, "d", &var);
-        dbus_message_iter_append_basic(&var, DBUS_TYPE_DOUBLE, &vr);
-        dbus_message_iter_close_container(&entry, &var);
-        dbus_message_iter_close_container(&dict, &entry);
+    // 3. Record a screen -> (o) stream path.
+    //    Prefer the REAL monitor: a virtual monitor is a separate output that
+    //    only ever shows the shell background - no application windows and no
+    //    shell panel appear on it, so a virtual stream looks like an empty
+    //    wallpaper. Headless hosts (no monitors) fall back to RecordVirtual at
+    //    1920x1080; STARDESK_CAST_VIRTUAL=1 forces the old virtual behaviour.
+    std::string stream;
+    bool gotStream = false;
+    const char* virtualEnv = std::getenv("STARDESK_CAST_VIRTUAL");
+    const bool forceVirtual = virtualEnv != nullptr && std::strcmp(virtualEnv, "1") == 0;
+    if (!forceVirtual) {
+        std::string connector;
+        if (QueryPrimaryConnector(m_impl->conn, connector)) {
+            call = dbus_message_new_method_call(
+                "org.gnome.Mutter.ScreenCast", session.c_str(),
+                "org.gnome.Mutter.ScreenCast.Session", "RecordMonitor");
+            dbus_message_iter_init_append(call, &args);
+            const char* connectorCStr = connector.c_str();
+            dbus_message_iter_append_basic(&args, DBUS_TYPE_STRING, &connectorCStr);
+            dbus_message_iter_open_container(&args, DBUS_TYPE_ARRAY, "{sv}", &dict);
+            dbus_message_iter_close_container(&args, &dict);
+            reply = dbus_connection_send_with_reply_and_block(m_impl->conn, call, 10000, &derr);
+            dbus_message_unref(call);
+            if (reply != nullptr) {
+                const char* p = nullptr;
+                dbus_message_iter_init(reply, &it);
+                if (dbus_message_iter_get_arg_type(&it) == DBUS_TYPE_OBJECT_PATH) {
+                    dbus_message_iter_get_basic(&it, &p);
+                }
+                dbus_message_unref(reply);
+                if (p != nullptr) {
+                    stream = p;
+                    gotStream = true;
+                    fprintf(stderr, "[capture] recording monitor %s\n", connector.c_str());
+                }
+            }
+            else {
+                fprintf(stderr, "[capture] RecordMonitor(%s) failed: %s - using a virtual monitor\n",
+                        connector.c_str(), derr.message ? derr.message : "unknown");
+                dbus_error_free(&derr);
+                dbus_error_init(&derr);
+            }
+        }
     }
-    dbus_message_iter_close_container(&args, &dict);
-    reply = dbus_connection_send_with_reply_and_block(m_impl->conn, call, 10000, &derr);
-    dbus_message_unref(call);
-    if (reply == nullptr) {
-        m_impl->error = derr.message ? derr.message : "RecordVirtual failed";
-        dbus_error_free(&derr);
-        Stop();
-        return false;
+    if (!gotStream) {
+        // Virtual monitor at 1920x1080 (headless host, or forced by env).
+        call = dbus_message_new_method_call(
+            "org.gnome.Mutter.ScreenCast", session.c_str(),
+            "org.gnome.Mutter.ScreenCast.Session", "RecordVirtual");
+        dbus_message_iter_init_append(call, &args);
+        dbus_message_iter_open_container(&args, DBUS_TYPE_ARRAY, "{sv}", &dict);
+        {
+            DBusMessageIter entry, var;
+            const uint32_t vw = 1920, vh = 1080;
+            const double vr = 60.0;
+            // width: u
+            dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, nullptr, &entry);
+            const char* kw = "width";
+            dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &kw);
+            dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT, "u", &var);
+            dbus_message_iter_append_basic(&var, DBUS_TYPE_UINT32, &vw);
+            dbus_message_iter_close_container(&entry, &var);
+            dbus_message_iter_close_container(&dict, &entry);
+            // height: u
+            dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, nullptr, &entry);
+            kw = "height";
+            dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &kw);
+            dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT, "u", &var);
+            dbus_message_iter_append_basic(&var, DBUS_TYPE_UINT32, &vh);
+            dbus_message_iter_close_container(&entry, &var);
+            dbus_message_iter_close_container(&dict, &entry);
+            // refresh-rate: d
+            dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, nullptr, &entry);
+            kw = "refresh-rate";
+            dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &kw);
+            dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT, "d", &var);
+            dbus_message_iter_append_basic(&var, DBUS_TYPE_DOUBLE, &vr);
+            dbus_message_iter_close_container(&entry, &var);
+            dbus_message_iter_close_container(&dict, &entry);
+        }
+        dbus_message_iter_close_container(&args, &dict);
+        reply = dbus_connection_send_with_reply_and_block(m_impl->conn, call, 10000, &derr);
+        dbus_message_unref(call);
+        if (reply == nullptr) {
+            m_impl->error = derr.message ? derr.message : "RecordVirtual failed";
+            dbus_error_free(&derr);
+            Stop();
+            return false;
+        }
+        const char* streamPath = nullptr;
+        dbus_message_iter_init(reply, &it);
+        if (dbus_message_iter_get_arg_type(&it) == DBUS_TYPE_OBJECT_PATH) {
+            dbus_message_iter_get_basic(&it, &streamPath);
+        }
+        dbus_message_unref(reply);
+        if (streamPath == nullptr) {
+            m_impl->error = "RecordVirtual: no stream path";
+            Stop();
+            return false;
+        }
+        stream = streamPath;
+        fprintf(stderr, "[capture] recording a virtual monitor 1920x1080 (headless fallback)\n");
     }
-    const char* streamPath = nullptr;
-    dbus_message_iter_init(reply, &it);
-    if (dbus_message_iter_get_arg_type(&it) == DBUS_TYPE_OBJECT_PATH) {
-        dbus_message_iter_get_basic(&it, &streamPath);
-    }
-    dbus_message_unref(reply);
-    if (streamPath == nullptr) {
-        m_impl->error = "RecordMonitor: no stream path";
-        Stop();
-        return false;
-    }
-    const std::string stream = streamPath;
     fprintf(stderr, "[capture] mutter stream %s\n", stream.c_str());
 
     // arm the PipeWireStreamAdded signal listener before Start
