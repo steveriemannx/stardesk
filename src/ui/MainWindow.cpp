@@ -944,13 +944,28 @@ void MainWindow::CycleLanguage()
 
 void MainWindow::OnConnectClicked()
 {
-    // stop any previous session (connected or in progress); the remote window
-    // (added in the screen step) provides the dedicated disconnect button
+    // While a remote window owns the session, the main button acts as the
+    // disconnect switch: give immediate feedback instead of silently queueing
+    // another connection attempt.
+    if (m_remoteWin != nullptr) {
+        m_connectBtn->SetText(SDK_TR("client.disconnecting"));
+        m_connectBtn->SetEnabled(false);
+        m_connStatusLabel->SetRole(ThemeLabel::Role::Sub);
+        m_connStatusLabel->SetText(SDK_TR("client.disconnecting"));
+        m_remoteWin->CloseWnd();
+        return;
+    }
+    // a connection attempt is already running: cancel it with feedback
     if (m_client) {
+        m_connectBtn->SetText(SDK_TR("client.disconnecting"));
+        m_connectBtn->SetEnabled(false);
+        m_connStatusLabel->SetRole(ThemeLabel::Role::Sub);
+        m_connStatusLabel->SetText(SDK_TR("client.disconnecting"));
         m_client->Stop();
         m_client.reset();
-        m_connStatusLabel->SetText("");
         m_connectBtn->SetText(SDK_TR("client.connect"));
+        m_connectBtn->SetEnabled(true);
+        return;
     }
 
     ClientSession::Options opt;
@@ -982,6 +997,10 @@ void MainWindow::OnConnectClicked()
     };
 
     m_client = std::make_unique<ClientSession>(opt, std::move(cb));
+    m_connectBtn->SetText(SDK_TR("client.connecting"));
+    m_connectBtn->SetEnabled(false);
+    m_connStatusLabel->SetRole(ThemeLabel::Role::Sub);
+    m_connStatusLabel->SetText(SDK_TR("client.connecting"));
     m_client->Start();
 }
 
@@ -995,6 +1014,7 @@ void MainWindow::OnClientState(ClientSession::State state, const std::string& te
     if (state == ClientSession::State::Connected) {
         m_connectBtn->SetText(SDK_TR("client.disconnect"));
         m_connectBtn->SetDangerLook(false);
+        m_connectBtn->SetEnabled(true);
         m_connStatusLabel->SetRole(ThemeLabel::Role::Success);
         m_connStatusLabel->SetText(text);
 
@@ -1004,15 +1024,35 @@ void MainWindow::OnClientState(ClientSession::State state, const std::string& te
         if (m_client) {
             ClientSession* sessionPtr = m_client.get();
             RemoteWindow* rw = new RemoteWindow(std::move(m_client));
+            m_remoteWin = rw;
             rw->SetClosedCallback([this]() {
                 PostToUI(ui::UiBind(this, [this]() {
+                    m_remoteWin = nullptr;
                     m_connectBtn->SetText(SDK_TR("client.connect"));
                     m_connectBtn->SetDangerLook(false);
+                    m_connectBtn->SetEnabled(true);
                     m_connStatusLabel->SetRole(ThemeLabel::Role::Sub);
                     m_connStatusLabel->SetText(SDK_TR("client.remoteDisconnected"));
                 }));
             });
             rw->CreateWnd(nullptr, ui::WindowCreateParam("StarDesk", true));
+            // Offset the remote window from the main window instead of letting
+            // the two same-sized windows overlap completely.
+            const ui::UiRect rcMainPos = GetWindowPos(false);
+            const ui::UiRect rcRemotePos = rw->GetWindowPos(false);
+            fprintf(stderr, "[client] main window pos=%d,%d %dx%d remote pos=%d,%d %dx%d\n",
+                    rcMainPos.left, rcMainPos.top, rcMainPos.Width(), rcMainPos.Height(),
+                    rcRemotePos.left, rcRemotePos.top, rcRemotePos.Width(),
+                    rcRemotePos.Height());
+            fflush(stderr);
+            const int32_t cascadeX = rw->Dpi().GetScaleInt(140);
+            const int32_t cascadeY = rw->Dpi().GetScaleInt(90);
+            rw->MoveWindow(rcRemotePos.left + cascadeX, rcRemotePos.top + cascadeY,
+                           rcRemotePos.Width(), rcRemotePos.Height(), true);
+            const ui::UiRect rcRemoteAfter = rw->GetWindowPos(false);
+            fprintf(stderr, "[client] remote window moved to=%d,%d\n",
+                    rcRemoteAfter.left, rcRemoteAfter.top);
+            fflush(stderr);
             rw->ShowWindow(ui::kSW_SHOW_NORMAL);
             // the remote view must be the front window - the main window
             // stays visible behind it but the user expects the video page
@@ -1025,6 +1065,8 @@ void MainWindow::OnClientState(ClientSession::State state, const std::string& te
     else if (state == ClientSession::State::Failed) {
         m_connStatusLabel->SetRole(ThemeLabel::Role::Danger);
         m_connStatusLabel->SetText(text);
+        m_connectBtn->SetText(SDK_TR("client.connect"));
+        m_connectBtn->SetEnabled(true);
         if (m_client) {
             m_client->Stop();
             m_client.reset();
@@ -1034,6 +1076,7 @@ void MainWindow::OnClientState(ClientSession::State state, const std::string& te
         m_connStatusLabel->SetRole(ThemeLabel::Role::Sub);
         m_connStatusLabel->SetText(text);
         m_connectBtn->SetText(SDK_TR("client.connect"));
+        m_connectBtn->SetEnabled(true);
     }
     else {
         m_connStatusLabel->SetRole(ThemeLabel::Role::Sub);

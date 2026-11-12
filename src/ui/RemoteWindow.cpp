@@ -934,6 +934,13 @@ void RemoteWindow::Disconnect()
     }
     m_disconnecting = true;
     SetLocalCursorHidden(false);
+    // immediate feedback: the teardown takes a moment
+    if (m_statusLabel != nullptr) {
+        m_statusLabel->SetText(SDK_TR("client.disconnecting"));
+    }
+    if (m_disconnectBtn != nullptr) {
+        m_disconnectBtn->SetEnabled(false);
+    }
     if (m_session) {
         m_session->Stop();
         m_session.reset();

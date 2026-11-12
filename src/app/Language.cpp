@@ -83,6 +83,7 @@ const Entry kEntries[] = {
     E("client.fps60", "60 帧", "60 幀", "60 fps", "60 fps", "60fps", "60 fps", "60 i/s", "60 кадр/с"),
     E("client.connect", "连接", "連接", "Connect", "接続", "연결", "Verbinden", "Connecter", "Подключить"),
     E("client.disconnect", "断开", "斷開", "Disconnect", "切断", "연결 끊기", "Trennen", "Déconnecter", "Отключить"),
+    E("client.disconnecting", "正在断开…", "正在斷開…", "Disconnecting…", "切断中…", "연결 해제 중…", "Trenne…", "Déconnexion…", "Отключение…"),
     E("client.connecting", "正在连接…", "正在連接…", "Connecting…", "接続中…", "연결 중…", "Verbinde…", "Connexion…", "Подключение…"),
     E("client.connected_", "已连接", "已連接", "Connected", "接続済み", "연결됨", "Verbunden", "Connecté", "Подключено"),
     E("client.waitingAccept", "等待对方接受…", "等待對方接受…", "Waiting for acceptance…", "相手の承認待ち…", "상대 수락 대기 중…", "Warte auf Bestätigung…", "En attente d'acceptation…", "Ожидание подтверждения…"),

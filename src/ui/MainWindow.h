@@ -13,6 +13,8 @@
 
 namespace sdk {
 
+class RemoteWindow;
+
 /** StarDesk main window: host panel (left) + remote-control / file tabs (right).
  *  Pure code UI; every control is built in OnInitWindow().
  */
@@ -142,6 +144,8 @@ private:
     // services
     std::unique_ptr<HostService> m_host;
     std::unique_ptr<ClientSession> m_client;
+    /** The standalone remote-view window while a session is active. */
+    RemoteWindow* m_remoteWin = nullptr;
     /** Port the host actually bound (may differ from the configured port
      *  when that one is taken, e.g. by a second instance on this machine). */
     uint16_t m_actualPort = 0;
