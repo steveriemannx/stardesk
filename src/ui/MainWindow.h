@@ -6,6 +6,7 @@
 #include "../app/AppConfig.h"
 #include "../session/ClientSession.h"
 #include "../session/HostSession.h"
+#include "LangBinder.h"
 #include "VectorArt.h"
 
 namespace sdk {
@@ -110,6 +111,11 @@ private:
 
     // language cycling support
     void CycleLanguage();
+    /** Re-apply every bound string after a runtime language switch. */
+    LangBinder m_lang;
+    /** Last LAN device list, re-rendered on a language switch (the row labels
+     *  and the empty hint are built from translated strings). */
+    std::vector<std::pair<std::string, std::string>> m_lastLanDevices;
 
     // services
     std::unique_ptr<HostService> m_host;

@@ -32,8 +32,8 @@ std::string SettingsWindow::GetSkinFile()
 void SettingsWindow::GetCreateWindowAttributes(ui::WindowCreateAttributes& attrs)
 {
     attrs.m_bInitSizeDefined = true;
-    attrs.m_szInitSize.cx = 420;
-    attrs.m_szInitSize.cy = 300;
+    attrs.m_szInitSize.cx = 440;
+    attrs.m_szInitSize.cy = 320;
     // system shadow: non-layered window + shadow attached, like the XML
     // configuration layered_window="false" shadow_attached="true" (two shadow
     // implementations exist: layered -> transparent self-drawn shadow,
@@ -92,7 +92,7 @@ void SettingsWindow::OnInitWindow()
 
     ThemeLabel* title = new ThemeLabel(this);
     title->SetRole(ThemeLabel::Role::Main);
-    title->SetText(SDK_TR("settings.title"));
+    m_lang.SetText(title, "settings.title");
     title->SetAttribute("font", "system_bold_12");
     title->SetAttribute("width", "auto");
     title->SetAttribute("margin", "12,0,0,0");
@@ -104,10 +104,10 @@ void SettingsWindow::OnInitWindow()
 
     IconButton* closeBtn = new IconButton(this);
     closeBtn->SetIcon(VectorArt::Icon::Close);
-    closeBtn->SetIconToolTip(SDK_TR("window.close"));
+    m_lang.BindToolTip(closeBtn, "window.close");
     closeBtn->SetName("closebtn");
     closeBtn->SetAttribute("width", "28");
-    closeBtn->SetAttribute("height", "26");
+    closeBtn->SetAttribute("height", "28");
     closeBtn->SetAttribute("margin", "0,3,4,3");
     caption->AddItem(closeBtn);
 
@@ -125,7 +125,7 @@ void SettingsWindow::OnInitWindow()
                                    int selectedIdx,
                                    const std::function<void(int)>& apply) {
         ui::HBox* row = new ui::HBox(this);
-        row->SetAttribute("height", "30");
+        row->SetAttribute("height", "34");
         row->SetAttribute("child_margin_x", "6");
         body->AddItem(row);
 
@@ -141,7 +141,7 @@ void SettingsWindow::OnInitWindow()
         for (const char* key : keys) {
             PillButton* pill = MakePill(key);
             pill->SetAttribute("width", "64");
-            pill->SetAttribute("height", "28");
+            pill->SetAttribute("height", "30");
             const int idx = (int)pills.size();
             pill->SetSelected(idx == selectedIdx);
             pill->AttachClick([apply, idx](const ui::EventArgs&) {
@@ -204,15 +204,15 @@ void SettingsWindow::OnInitWindow()
 
     // done row
     ui::HBox* doneRow = new ui::HBox(this);
-    doneRow->SetAttribute("height", "34");
+    doneRow->SetAttribute("height", "40");
     doneRow->SetAttribute("child_halign", "right");
     doneRow->SetAttribute("child_margin_x", "6");
     body->AddItem(doneRow);
 
     AccentButton* doneBtn = new AccentButton(this);
-    doneBtn->SetText(SDK_TR("common.ok"));
+    m_lang.SetText(doneBtn, "common.ok");
     doneBtn->SetAttribute("width", "80");
-    doneBtn->SetAttribute("height", "30");
+    doneBtn->SetAttribute("height", "34");
     doneBtn->AttachClick([this](const ui::EventArgs&) {
         CloseWnd();
         return true;
@@ -239,6 +239,8 @@ void SettingsWindow::ApplyTheme()
 
 void SettingsWindow::ApplyLanguage()
 {
+    fprintf(stderr, "[lang] SettingsWindow::ApplyLanguage\n");
+    m_lang.Apply();
     if (m_modeLabel == nullptr) {
         return;
     }

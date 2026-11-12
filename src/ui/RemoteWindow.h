@@ -5,6 +5,7 @@
 
 #include "../app/AppConfig.h"
 #include "../session/ClientSession.h"
+#include "LangBinder.h"
 #include "VectorArt.h"
 
 namespace sdk {
@@ -42,6 +43,8 @@ public:
     void SetClosedCallback(std::function<void()> cb) { m_onClosed = std::move(cb); }
 
 private:
+    LangBinder m_lang;
+    void UpdateCursorPillText();
     void ToggleFullscreen();
     void Disconnect();
     void ToggleFit();

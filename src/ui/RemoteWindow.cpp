@@ -104,8 +104,8 @@ std::string RemoteWindow::GetSkinFile()
 void RemoteWindow::GetCreateWindowAttributes(ui::WindowCreateAttributes& attrs)
 {
     attrs.m_bInitSizeDefined = true;
-    attrs.m_szInitSize.cx = 960;
-    attrs.m_szInitSize.cy = 640;
+    attrs.m_szInitSize.cx = 1000;
+    attrs.m_szInitSize.cy = 680;
     // system shadow: non-layered window + shadow attached, like the XML
     // configuration layered_window="false" shadow_attached="true" (two shadow
     // implementations exist: layered -> transparent self-drawn shadow,
@@ -188,7 +188,7 @@ void RemoteWindow::OnInitWindow()
 
     IconButton* closeBtn = new IconButton(this);
     closeBtn->SetIcon(VectorArt::Icon::Close);
-    closeBtn->SetIconToolTip(SDK_TR("window.close"));
+    m_lang.BindToolTip(closeBtn, "window.close");
     closeBtn->SetName("closebtn");
     closeBtn->SetAttribute("width", "34");
     closeBtn->SetAttribute("height", "30");
@@ -211,19 +211,19 @@ void RemoteWindow::OnInitWindow()
 
     // ---- toolbar ----
     m_toolbar = new ui::VBox(this);
-    m_toolbar->SetAttribute("height", "40");
+    m_toolbar->SetAttribute("height", "46");
     m_toolbar->SetBkColor(p.panelBg);
     root->AddItem(m_toolbar);
 
     ui::HBox* toolRow = new ui::HBox(this);
-    toolRow->SetAttribute("child_margin_x", "8");
-    toolRow->SetAttribute("padding", "10,5,10,5");
+    toolRow->SetAttribute("child_margin_x", "10");
+    toolRow->SetAttribute("padding", "12,8,12,8");
     m_toolbar->AddItem(toolRow);
 
     m_fitPill = new PillButton(this);
     m_fitPill->SetText(SDK_TR("remote.fit"));
     m_fitPill->SetAttribute("width", "86");
-    m_fitPill->SetAttribute("height", "28");
+    m_fitPill->SetAttribute("height", "30");
     m_fitPill->SetSelected(m_fitMode); // fill mode by default
     m_fitPill->AttachClick([this](const ui::EventArgs&) {
         ToggleFit();
@@ -234,7 +234,7 @@ void RemoteWindow::OnInitWindow()
     m_fullscreenPill = new PillButton(this);
     m_fullscreenPill->SetText(SDK_TR("remote.fullscreen"));
     m_fullscreenPill->SetAttribute("width", "86");
-    m_fullscreenPill->SetAttribute("height", "28");
+    m_fullscreenPill->SetAttribute("height", "30");
     m_fullscreenPill->AttachClick([this](const ui::EventArgs&) {
         ToggleFullscreen();
         return true;
@@ -244,10 +244,9 @@ void RemoteWindow::OnInitWindow()
     m_cursorMode = App::Instance().Config().cursorMode;
     SetLocalCursorHidden(false);
     m_cursorPill = new PillButton(this);
-    m_cursorPill->SetText(m_cursorMode == 0 ? "光标：本地" :
-                          (m_cursorMode == 1 ? "光标：双光标" : "显示模式"));
+    UpdateCursorPillText();
     m_cursorPill->SetAttribute("width", "104");
-    m_cursorPill->SetAttribute("height", "28");
+    m_cursorPill->SetAttribute("height", "30");
     m_cursorPill->SetSelected(m_cursorMode != 0);
     m_cursorPill->AttachClick([this](const ui::EventArgs&) {
         CycleCursorMode();
@@ -264,7 +263,7 @@ void RemoteWindow::OnInitWindow()
     m_h264Pill = new PillButton(this);
     m_h264Pill->SetText("H.264");
     m_h264Pill->SetAttribute("width", "56");
-    m_h264Pill->SetAttribute("height", "28");
+    m_h264Pill->SetAttribute("height", "30");
     m_h264Pill->SetSelected(m_currentCodec == 1);
     m_h264Pill->AttachClick([this](const ui::EventArgs&) {
         SwitchCodec(1);
@@ -275,7 +274,7 @@ void RemoteWindow::OnInitWindow()
     m_vp9Pill = new PillButton(this);
     m_vp9Pill->SetText("VP9");
     m_vp9Pill->SetAttribute("width", "56");
-    m_vp9Pill->SetAttribute("height", "28");
+    m_vp9Pill->SetAttribute("height", "30");
     m_vp9Pill->SetSelected(m_currentCodec == 2);
     m_vp9Pill->AttachClick([this](const ui::EventArgs&) {
         SwitchCodec(2);
@@ -286,7 +285,7 @@ void RemoteWindow::OnInitWindow()
     m_av1Pill = new PillButton(this);
     m_av1Pill->SetText("AV1");
     m_av1Pill->SetAttribute("width", "56");
-    m_av1Pill->SetAttribute("height", "28");
+    m_av1Pill->SetAttribute("height", "30");
     m_av1Pill->SetSelected(m_currentCodec == 3);
     m_av1Pill->AttachClick([this](const ui::EventArgs&) {
         SwitchCodec(3);
@@ -297,7 +296,7 @@ void RemoteWindow::OnInitWindow()
     m_openh264Pill = new PillButton(this);
     m_openh264Pill->SetText("OpenH.264");
     m_openh264Pill->SetAttribute("width", "80");
-    m_openh264Pill->SetAttribute("height", "28");
+    m_openh264Pill->SetAttribute("height", "30");
     m_openh264Pill->SetSelected(m_currentCodec == 4);
     m_openh264Pill->AttachClick([this](const ui::EventArgs&) {
         SwitchCodec(4);
@@ -308,8 +307,8 @@ void RemoteWindow::OnInitWindow()
     m_sendFileBtn = new PillButton(this);
     m_sendFileBtn->SetText(SDK_TR("remote.sendFile"));
     m_sendFileBtn->SetAttribute("width", "auto");
-    m_sendFileBtn->SetAttribute("height", "28");
-    m_sendFileBtn->SetAttribute("padding", "10,0,10,0");
+    m_sendFileBtn->SetAttribute("height", "30");
+    m_sendFileBtn->SetAttribute("padding", "12,0,12,0");
     m_sendFileBtn->AttachClick([this](const ui::EventArgs&) {
         if (m_session && m_session->IsConnected()) {
             FileBrowserWindow* w = new FileBrowserWindow(m_session.get());
@@ -334,8 +333,8 @@ void RemoteWindow::OnInitWindow()
     m_disconnectBtn = new IconButton(this);
     m_disconnectBtn->SetIcon(VectorArt::Icon::Power);
     m_disconnectBtn->SetIconToolTip(SDK_TR("remote.disconnect"));
-    m_disconnectBtn->SetAttribute("width", "28");
-    m_disconnectBtn->SetAttribute("height", "28");
+    m_disconnectBtn->SetAttribute("width", "30");
+    m_disconnectBtn->SetAttribute("height", "30");
     m_disconnectBtn->AttachClick([this](const ui::EventArgs&) {
         Disconnect();
         return true;
@@ -605,8 +604,7 @@ void RemoteWindow::CycleCursorMode()
     // usable and the pointer does not appear to disappear from the window.
     SetLocalCursorHidden(false);
     if (m_cursorPill != nullptr) {
-        m_cursorPill->SetText(m_cursorMode == 0 ? "光标：本地" :
-                              (m_cursorMode == 1 ? "光标：双光标" : "显示模式"));
+        UpdateCursorPillText();
         m_cursorPill->SetSelected(m_cursorMode != 0);
     }
     AppConfig& cfg = App::Instance().Config();
@@ -982,8 +980,21 @@ void RemoteWindow::ApplyTheme()
     InvalidateAll();
 }
 
+void RemoteWindow::UpdateCursorPillText()
+{
+    if (m_cursorPill == nullptr) {
+        return;
+    }
+    m_cursorPill->SetText(m_cursorMode == 0 ? SDK_TR("remote.cursorLocal")
+                          : (m_cursorMode == 1 ? SDK_TR("remote.cursorDual")
+                                               : SDK_TR("remote.cursorDisplay")));
+}
+
 void RemoteWindow::ApplyLanguage()
 {
+    fprintf(stderr, "[lang] RemoteWindow::ApplyLanguage\n");
+    m_lang.Apply();
+    UpdateCursorPillText();
     m_fullscreenPill->SetText(m_fullscreen ? SDK_TR("remote.exitFullscreen")
                                            : SDK_TR("remote.fullscreen"));
     m_fitPill->SetText(SDK_TR("remote.fit"));

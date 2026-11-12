@@ -35,8 +35,8 @@ std::string AskWindow::GetSkinFile()
 void AskWindow::GetCreateWindowAttributes(ui::WindowCreateAttributes& attrs)
 {
     attrs.m_bInitSizeDefined = true;
-    attrs.m_szInitSize.cx = 380;
-    attrs.m_szInitSize.cy = 190;
+    attrs.m_szInitSize.cx = 400;
+    attrs.m_szInitSize.cy = 200;
     // system shadow: non-layered window + shadow attached, like the XML
     // configuration layered_window="false" shadow_attached="true" (two shadow
     // implementations exist: layered -> transparent self-drawn shadow,
@@ -84,7 +84,7 @@ void AskWindow::OnInitWindow()
 
     ThemeLabel* title = new ThemeLabel(this);
     title->SetRole(ThemeLabel::Role::Main);
-    title->SetText(SDK_TR("ask.title"));
+    m_lang.SetText(title, "ask.title");
     title->SetAttribute("font", "system_bold_12");
     title->SetAttribute("width", "auto");
     title->SetAttribute("margin", "12,0,0,0");
@@ -96,10 +96,10 @@ void AskWindow::OnInitWindow()
 
     IconButton* closeBtn = new IconButton(this);
     closeBtn->SetIcon(VectorArt::Icon::Close);
-    closeBtn->SetIconToolTip(SDK_TR("window.close"));
+    m_lang.BindToolTip(closeBtn, "window.close");
     closeBtn->SetName("closebtn");
     closeBtn->SetAttribute("width", "28");
-    closeBtn->SetAttribute("height", "26");
+    closeBtn->SetAttribute("height", "28");
     closeBtn->SetAttribute("margin", "0,3,4,3");
     caption->AddItem(closeBtn);
 
@@ -123,9 +123,9 @@ void AskWindow::OnInitWindow()
     body->AddItem(btnRow);
 
     PillButton* rejectBtn = new PillButton(this);
-    rejectBtn->SetText(SDK_TR("ask.reject"));
+    m_lang.SetText(rejectBtn, "ask.reject");
     rejectBtn->SetAttribute("width", "80");
-    rejectBtn->SetAttribute("height", "30");
+    rejectBtn->SetAttribute("height", "34");
     rejectBtn->AttachClick([this](const ui::EventArgs&) {
         if (!m_done && m_cb) m_cb(false);
         m_done = true;
@@ -135,9 +135,9 @@ void AskWindow::OnInitWindow()
     btnRow->AddItem(rejectBtn);
 
     AccentButton* acceptBtn = new AccentButton(this);
-    acceptBtn->SetText(SDK_TR("ask.accept"));
+    m_lang.SetText(acceptBtn, "ask.accept");
     acceptBtn->SetAttribute("width", "80");
-    acceptBtn->SetAttribute("height", "30");
+    acceptBtn->SetAttribute("height", "34");
     acceptBtn->AttachClick([this](const ui::EventArgs&) {
         if (!m_done && m_cb) m_cb(true);
         m_done = true;
@@ -166,6 +166,8 @@ void AskWindow::ApplyTheme()
 
 void AskWindow::ApplyLanguage()
 {
+    fprintf(stderr, "[lang] AskWindow::ApplyLanguage\n");
+    m_lang.Apply();
     if (m_textLabel == nullptr) {
         return;
     }

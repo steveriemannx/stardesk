@@ -312,6 +312,8 @@ void App::SetLanguage(Lang lang)
     }
     m_config.language = (int)lang;
     Language::Set(lang);
+    fprintf(stderr, "[app] language -> %s\n", Language::NativeName(lang).c_str());
+    fflush(stderr);
     for (IAppListener* l : m_listeners) {
         if (l != nullptr) {
             l->OnLanguageChanged();

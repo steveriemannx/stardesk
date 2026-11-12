@@ -6,6 +6,7 @@
 #include <filesystem>
 
 #include "../app/AppConfig.h"
+#include "LangBinder.h"
 #include "../session/ClientSession.h"
 #include "VectorArt.h"
 
@@ -78,6 +79,7 @@ class FileBrowserWindow : public ui::WindowImplBase, public IAppListener
     std::vector<RowInfo> m_rows;
 
 private:
+    LangBinder m_lang;
     struct Entry {
         std::string name;
         bool isDir = false;

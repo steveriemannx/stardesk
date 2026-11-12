@@ -80,8 +80,8 @@ std::string FileBrowserWindow::GetSkinFile() { return ""; }
 void FileBrowserWindow::GetCreateWindowAttributes(ui::WindowCreateAttributes& attrs)
 {
     attrs.m_bInitSizeDefined = true;
-    attrs.m_szInitSize.cx = 960;
-    attrs.m_szInitSize.cy = 640;
+    attrs.m_szInitSize.cx = 1000;
+    attrs.m_szInitSize.cy = 680;
     attrs.m_bShadowAttached = true;
     attrs.m_bShadowAttachedDefined = true;
     attrs.m_bIsLayeredWindow = false;
@@ -122,7 +122,7 @@ void FileBrowserWindow::OnInitWindow()
 
     ThemeLabel* title = new ThemeLabel(this);
     title->SetRole(ThemeLabel::Role::Main);
-    title->SetText(SDK_TR("filebrowser.title"));
+    m_lang.SetText(title, "filebrowser.title");
     title->SetAttribute("font", "system_bold_12");
     title->SetAttribute("width", "auto");
     title->SetAttribute("margin", "12,0,0,0");
@@ -134,10 +134,10 @@ void FileBrowserWindow::OnInitWindow()
 
     IconButton* closeBtn = new IconButton(this);
     closeBtn->SetIcon(VectorArt::Icon::Close);
-    closeBtn->SetIconToolTip(SDK_TR("window.close"));
+    m_lang.BindToolTip(closeBtn, "window.close");
     closeBtn->SetName("closebtn");
     closeBtn->SetAttribute("width", "28");
-    closeBtn->SetAttribute("height", "26");
+    closeBtn->SetAttribute("height", "28");
     closeBtn->SetAttribute("margin", "0,3,4,3");
     caption->AddItem(closeBtn);
 
@@ -152,7 +152,7 @@ void FileBrowserWindow::OnInitWindow()
     ui::VBox* body = m_body;
     body->SetAttribute("width", "stretch");
     body->SetAttribute("height", "stretch");
-    body->SetAttribute("padding", "14,12,14,12");
+    body->SetAttribute("padding", "16,14,16,14");
     body->SetAttribute("child_margin_y", "8");
     m_root->AddItem(body);
 
@@ -186,14 +186,14 @@ void FileBrowserWindow::OnInitWindow()
 
     ThemeLabel* remoteTitle = new ThemeLabel(this);
     remoteTitle->SetRole(ThemeLabel::Role::Main);
-    remoteTitle->SetText(SDK_TR("filebrowser.remote"));
+    m_lang.SetText(remoteTitle, "filebrowser.remote");
     remoteTitle->SetAttribute("font", "system_bold_12");
     remoteTitle->SetAttribute("width", "auto");
     remoteHead->AddItem(remoteTitle);
 
     IconButton* remoteUp = new IconButton(this);
     remoteUp->SetIcon(VectorArt::Icon::Folder);
-    remoteUp->SetIconToolTip(SDK_TR("filebrowser.up"));
+    m_lang.BindToolTip(remoteUp, "filebrowser.up");
     remoteUp->SetAttribute("width", "24");
     remoteUp->SetAttribute("height", "24");
     remoteUp->AttachClick([this](const ui::EventArgs&) {
@@ -204,7 +204,7 @@ void FileBrowserWindow::OnInitWindow()
 
     IconButton* remoteRefresh = new IconButton(this);
     remoteRefresh->SetIcon(VectorArt::Icon::Refresh);
-    remoteRefresh->SetIconToolTip(SDK_TR("filebrowser.refresh"));
+    m_lang.BindToolTip(remoteRefresh, "filebrowser.refresh");
     remoteRefresh->SetAttribute("width", "24");
     remoteRefresh->SetAttribute("height", "24");
     remoteRefresh->AttachClick([this](const ui::EventArgs&) {
@@ -243,7 +243,7 @@ void FileBrowserWindow::OnInitWindow()
 
     ThemeLabel* remoteNameCol = new ThemeLabel(this);
     remoteNameCol->SetRole(ThemeLabel::Role::Sub);
-    remoteNameCol->SetText(SDK_TR("file.name"));
+    m_lang.SetText(remoteNameCol, "file.name");
     remoteNameCol->SetAttribute("width", "stretch");
     remoteNameCol->SetAttribute("text_align", "left,vcenter");
     remoteNameCol->SetAttribute("font", "system_10");
@@ -251,7 +251,7 @@ void FileBrowserWindow::OnInitWindow()
 
     ThemeLabel* remoteSizeCol = new ThemeLabel(this);
     remoteSizeCol->SetRole(ThemeLabel::Role::Sub);
-    remoteSizeCol->SetText(SDK_TR("file.size"));
+    m_lang.SetText(remoteSizeCol, "file.size");
     remoteSizeCol->SetAttribute("width", "auto");
     remoteSizeCol->SetAttribute("text_align", "right,vcenter");
     remoteSizeCol->SetAttribute("font", "system_10");
@@ -273,14 +273,14 @@ void FileBrowserWindow::OnInitWindow()
 
     ThemeLabel* localTitle = new ThemeLabel(this);
     localTitle->SetRole(ThemeLabel::Role::Main);
-    localTitle->SetText(SDK_TR("filebrowser.local"));
+    m_lang.SetText(localTitle, "filebrowser.local");
     localTitle->SetAttribute("font", "system_bold_12");
     localTitle->SetAttribute("width", "auto");
     localHead->AddItem(localTitle);
 
     IconButton* localUp = new IconButton(this);
     localUp->SetIcon(VectorArt::Icon::Folder);
-    localUp->SetIconToolTip(SDK_TR("filebrowser.up"));
+    m_lang.BindToolTip(localUp, "filebrowser.up");
     localUp->SetAttribute("width", "24");
     localUp->SetAttribute("height", "24");
     localUp->AttachClick([this](const ui::EventArgs&) {
@@ -291,7 +291,7 @@ void FileBrowserWindow::OnInitWindow()
 
     IconButton* localRefresh = new IconButton(this);
     localRefresh->SetIcon(VectorArt::Icon::Refresh);
-    localRefresh->SetIconToolTip(SDK_TR("filebrowser.refresh"));
+    m_lang.BindToolTip(localRefresh, "filebrowser.refresh");
     localRefresh->SetAttribute("width", "24");
     localRefresh->SetAttribute("height", "24");
     localRefresh->AttachClick([this](const ui::EventArgs&) {
@@ -330,7 +330,7 @@ void FileBrowserWindow::OnInitWindow()
 
     ThemeLabel* localNameCol = new ThemeLabel(this);
     localNameCol->SetRole(ThemeLabel::Role::Sub);
-    localNameCol->SetText(SDK_TR("file.name"));
+    m_lang.SetText(localNameCol, "file.name");
     localNameCol->SetAttribute("width", "stretch");
     localNameCol->SetAttribute("text_align", "left,vcenter");
     localNameCol->SetAttribute("font", "system_10");
@@ -338,7 +338,7 @@ void FileBrowserWindow::OnInitWindow()
 
     ThemeLabel* localSizeCol = new ThemeLabel(this);
     localSizeCol->SetRole(ThemeLabel::Role::Sub);
-    localSizeCol->SetText(SDK_TR("file.size"));
+    m_lang.SetText(localSizeCol, "file.size");
     localSizeCol->SetAttribute("width", "auto");
     localSizeCol->SetAttribute("text_align", "right,vcenter");
     localSizeCol->SetAttribute("font", "system_10");
@@ -389,9 +389,15 @@ void FileBrowserWindow::ApplyTheme()
 
 void FileBrowserWindow::ApplyLanguage()
 {
+    fprintf(stderr, "[lang] FileBrowserWindow::ApplyLanguage\n");
+    m_lang.Apply();
     if (m_statusLabel != nullptr) {
         m_statusLabel->SetText("");
     }
+    // rebuild the panes so row actions / empty hints use the new language
+    RefreshLocal();
+    RenderRemote();
+    InvalidateAll();
 }
 
 // ---------------------------------------------------------------- local

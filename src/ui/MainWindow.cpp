@@ -14,7 +14,9 @@
 #include "../ui/SettingsWindow.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
+#include <thread>
 #include <cstdlib>
 #include <string>
 
@@ -64,8 +66,8 @@ std::string MainWindow::GetSkinFile()
 void MainWindow::GetCreateWindowAttributes(ui::WindowCreateAttributes& attrs)
 {
     attrs.m_bInitSizeDefined = true;
-    attrs.m_szInitSize.cx = 960;
-    attrs.m_szInitSize.cy = 640;
+    attrs.m_szInitSize.cx = 1000;
+    attrs.m_szInitSize.cy = 680;
     // system shadow: non-layered window + shadow attached, like the XML
     // configuration layered_window="false" shadow_attached="true" (two shadow
     // implementations exist: layered -> transparent self-drawn shadow,
@@ -97,14 +99,16 @@ ui::Label* MainWindow::MakeLabel(const char* key, ThemeLabel::Role role)
 {
     ThemeLabel* label = new ThemeLabel(this);
     label->SetRole(role);
-    label->SetText(SDK_TR(key));
+    if (key[0] != '\0') {
+        m_lang.SetText(label, key);
+    }
     return label;
 }
 
 ui::RichEdit* MainWindow::MakeEdit(const char* promptKey, bool password)
 {
     ui::RichEdit* edit = new ui::RichEdit(this);
-    edit->SetAttribute("prompt_text", SDK_TR(promptKey));
+    m_lang.BindPrompt(edit, promptKey);
     edit->SetAttribute("prompt_color", Theme::Hex(Theme::Get().textSub));
     edit->SetAttribute("single_line", "true");
     edit->SetAttribute("font", "system_12");
@@ -129,7 +133,7 @@ void MainWindow::SetEditBk(ui::RichEdit* edit)
 PillButton* MainWindow::MakePill(const char* key)
 {
     PillButton* pill = new PillButton(this);
-    pill->SetText(SDK_TR(key));
+    m_lang.SetText(pill, key);
     return pill;
 }
 
@@ -138,7 +142,9 @@ IconButton* MainWindow::MakeIconButton(VectorArt::Icon icon, const char* tooltip
 {
     IconButton* btn = new IconButton(this);
     btn->SetIcon(icon);
-    btn->SetIconToolTip(SDK_TR(tooltipKey));
+    if (tooltipKey[0] != '\0') {
+        m_lang.BindToolTip(btn, tooltipKey);
+    }
     btn->SetName(name);
     return btn;
 }
@@ -204,7 +210,7 @@ void MainWindow::OnInitWindow()
 
     ThemeLabel* subtitle = new ThemeLabel(this);
     subtitle->SetRole(ThemeLabel::Role::Sub);
-    subtitle->SetText(SDK_TR("app.subtitle"));
+    m_lang.SetText(subtitle, "app.subtitle");
     subtitle->SetAttribute("font", "system_12");
     subtitle->SetAttribute("width", "auto");
     subtitle->SetAttribute("margin", "10,0,0,0");
@@ -219,7 +225,7 @@ void MainWindow::OnInitWindow()
     m_langBtn = new PillButton(this);
     m_langBtn->SetText(Language::NativeName(Language::Get()));
     m_langBtn->SetAttribute("width", "80");
-    m_langBtn->SetAttribute("height", "26");
+    m_langBtn->SetAttribute("height", "30");
     m_langBtn->SetAttribute("margin", "0,5,4,5");
     m_langBtn->AttachClick([this](const ui::EventArgs&) {
         CycleLanguage();
@@ -271,16 +277,16 @@ void MainWindow::OnInitWindow()
 
     // ================= left sidebar =================
     m_sidebar = new ui::VBox(this);
-    m_sidebar->SetAttribute("width", "288");
-    m_sidebar->SetAttribute("padding", "12,12,12,12");
-    m_sidebar->SetAttribute("child_margin_y", "10");
+    m_sidebar->SetAttribute("width", "300");
+    m_sidebar->SetAttribute("padding", "16,16,16,16");
+    m_sidebar->SetAttribute("child_margin_y", "12");
     m_sidebar->SetBkColor(p.panelBg);
     body->AddItem(m_sidebar);
 
     // -- device card --
     CardBox* cardDevice = new CardBox(this);
-    cardDevice->SetAttribute("padding", "12,10,12,12");
-    cardDevice->SetAttribute("child_margin_y", "6");
+    cardDevice->SetAttribute("padding", "16,12,16,14");
+    cardDevice->SetAttribute("child_margin_y", "8");
     m_sidebar->AddItem(cardDevice);
 
     ThemeLabel* t1 = static_cast<ThemeLabel*>(MakeLabel("host.device", ThemeLabel::Role::Title));
@@ -301,8 +307,8 @@ void MainWindow::OnInitWindow()
 
     // -- password card --
     CardBox* cardPassword = new CardBox(this);
-    cardPassword->SetAttribute("padding", "12,10,12,12");
-    cardPassword->SetAttribute("child_margin_y", "6");
+    cardPassword->SetAttribute("padding", "16,12,16,14");
+    cardPassword->SetAttribute("child_margin_y", "8");
     m_sidebar->AddItem(cardPassword);
 
     cardPassword->AddItem(MakeLabel("host.password", ThemeLabel::Role::Title));
@@ -313,12 +319,12 @@ void MainWindow::OnInitWindow()
 
     m_hostPwdEdit = MakeEdit("host.password", true);
     m_hostPwdEdit->SetText(App::Instance().Config().password);
-    m_hostPwdEdit->SetAttribute("height", "28");
+    m_hostPwdEdit->SetAttribute("height", "34");
     pwdRow->AddItem(m_hostPwdEdit);
 
     IconButton* genBtn = MakeIconButton(VectorArt::Icon::Random, "host.genPassword", "");
-    genBtn->SetAttribute("width", "28");
-    genBtn->SetAttribute("height", "28");
+    genBtn->SetAttribute("width", "30");
+    genBtn->SetAttribute("height", "30");
     genBtn->AttachClick([this](const ui::EventArgs&) {
         const std::string pwd = AppConfig::GeneratePassword();
         m_hostPwdEdit->SetText(pwd);
@@ -329,8 +335,8 @@ void MainWindow::OnInitWindow()
     pwdRow->AddItem(genBtn);
 
     m_pwdShowBtn = MakeIconButton(VectorArt::Icon::Eye, "host.showPassword", "");
-    m_pwdShowBtn->SetAttribute("width", "28");
-    m_pwdShowBtn->SetAttribute("height", "28");
+    m_pwdShowBtn->SetAttribute("width", "30");
+    m_pwdShowBtn->SetAttribute("height", "30");
     m_pwdShowBtn->AttachClick([this](const ui::EventArgs&) {
         m_pwdVisible = !m_pwdVisible;
         m_hostPwdEdit->SetAttribute("password", m_pwdVisible ? "false" : "true");
@@ -341,8 +347,8 @@ void MainWindow::OnInitWindow()
 
     // -- accept mode card --
     CardBox* cardAccept = new CardBox(this);
-    cardAccept->SetAttribute("padding", "12,10,12,12");
-    cardAccept->SetAttribute("child_margin_y", "6");
+    cardAccept->SetAttribute("padding", "16,12,16,14");
+    cardAccept->SetAttribute("child_margin_y", "8");
     m_sidebar->AddItem(cardAccept);
 
     cardAccept->AddItem(MakeLabel("host.acceptMode", ThemeLabel::Role::Title));
@@ -352,11 +358,11 @@ void MainWindow::OnInitWindow()
     cardAccept->AddItem(acceptRow);
 
     m_autoAcceptPill = MakePill("host.autoAccept");
-    m_autoAcceptPill->SetAttribute("height", "26");
+    m_autoAcceptPill->SetAttribute("height", "30");
     acceptRow->AddItem(m_autoAcceptPill);
 
     m_manualAcceptPill = MakePill("host.manualAccept");
-    m_manualAcceptPill->SetAttribute("height", "26");
+    m_manualAcceptPill->SetAttribute("height", "30");
     acceptRow->AddItem(m_manualAcceptPill);
 
     const bool manual = App::Instance().Config().manualAccept;
@@ -380,8 +386,8 @@ void MainWindow::OnInitWindow()
 
     // -- share mode card --
     CardBox* cardShare = new CardBox(this);
-    cardShare->SetAttribute("padding", "12,10,12,12");
-    cardShare->SetAttribute("child_margin_y", "6");
+    cardShare->SetAttribute("padding", "16,12,16,14");
+    cardShare->SetAttribute("child_margin_y", "8");
     m_sidebar->AddItem(cardShare);
 
     cardShare->AddItem(MakeLabel("host.shareMode", ThemeLabel::Role::Title));
@@ -391,11 +397,11 @@ void MainWindow::OnInitWindow()
     cardShare->AddItem(shareRow);
 
     m_mirrorPill = MakePill("host.shareMirror");
-    m_mirrorPill->SetAttribute("height", "26");
+    m_mirrorPill->SetAttribute("height", "30");
     shareRow->AddItem(m_mirrorPill);
 
     m_extendPill = MakePill("host.shareExtend");
-    m_extendPill->SetAttribute("height", "26");
+    m_extendPill->SetAttribute("height", "30");
     shareRow->AddItem(m_extendPill);
 
     const bool extend = App::Instance().Config().extendScreen;
@@ -419,8 +425,8 @@ void MainWindow::OnInitWindow()
 
     // -- host status card --
     CardBox* cardStatus = new CardBox(this);
-    cardStatus->SetAttribute("padding", "12,10,12,12");
-    cardStatus->SetAttribute("child_margin_y", "6");
+    cardStatus->SetAttribute("padding", "16,12,16,14");
+    cardStatus->SetAttribute("child_margin_y", "8");
     m_sidebar->AddItem(cardStatus);
 
     cardStatus->AddItem(MakeLabel("host.status", ThemeLabel::Role::Title));
@@ -434,25 +440,25 @@ void MainWindow::OnInitWindow()
 
     // ================= right side =================
     ui::VBox* mainArea = new ui::VBox(this);
-    mainArea->SetAttribute("padding", "12,8,12,12");
-    mainArea->SetAttribute("child_margin_y", "8");
+    mainArea->SetAttribute("padding", "16,10,16,14");
+    mainArea->SetAttribute("child_margin_y", "10");
     body->AddItem(mainArea);
 
     // -- tabs --
     ui::HBox* tabRow = new ui::HBox(this);
     tabRow->SetAttribute("child_margin_x", "6");
     // fixed height: the tabs must not stretch across the whole panel
-    tabRow->SetAttribute("height", "28");
+    tabRow->SetAttribute("height", "32");
     mainArea->AddItem(tabRow);
 
     m_tabRemote = MakePill("client.title");
-    m_tabRemote->SetAttribute("width", "96");
-    m_tabRemote->SetAttribute("height", "28");
+    m_tabRemote->SetAttribute("width", "104");
+    m_tabRemote->SetAttribute("height", "32");
     tabRow->AddItem(m_tabRemote);
 
     m_tabFile = MakePill("file.title");
-    m_tabFile->SetAttribute("width", "96");
-    m_tabFile->SetAttribute("height", "28");
+    m_tabFile->SetAttribute("width", "104");
+    m_tabFile->SetAttribute("height", "32");
     tabRow->AddItem(m_tabFile);
 
     m_tabRemote->AttachClick([this](const ui::EventArgs&) {
@@ -466,17 +472,17 @@ void MainWindow::OnInitWindow()
 
     // ---- remote tab ----
     m_panelRemote = new ui::VBox(this);
-    m_panelRemote->SetAttribute("child_margin_y", "10");
+    m_panelRemote->SetAttribute("child_margin_y", "12");
     mainArea->AddItem(m_panelRemote);
 
     // LAN devices card
     CardBox* cardDevices = new CardBox(this);
-    cardDevices->SetAttribute("padding", "12,10,12,12");
-    cardDevices->SetAttribute("child_margin_y", "4");
+    cardDevices->SetAttribute("padding", "16,12,16,14");
+    cardDevices->SetAttribute("child_margin_y", "6");
     m_panelRemote->AddItem(cardDevices);
 
     ThemeLabel* devicesTitle = static_cast<ThemeLabel*>(MakeLabel("client.devices", ThemeLabel::Role::Title));
-    devicesTitle->SetAttribute("height", "20");
+    devicesTitle->SetAttribute("height", "22");
     cardDevices->AddItem(devicesTitle);
 
     m_deviceList = new ui::VBox(this);
@@ -485,12 +491,12 @@ void MainWindow::OnInitWindow()
 
     m_deviceEmptyLabel = static_cast<ThemeLabel*>(MakeLabel("file.empty", ThemeLabel::Role::Sub));
     m_deviceEmptyLabel->SetText(SDK_TR("file.empty"));
-    m_deviceEmptyLabel->SetAttribute("height", "24");
+    m_deviceEmptyLabel->SetAttribute("height", "26");
     m_deviceList->AddItem(m_deviceEmptyLabel);
 
     // connect card: compact form (advanced options moved to SettingsWindow)
     CardBox* cardConn = new CardBox(this);
-    cardConn->SetAttribute("padding", "12,10,12,12");
+    cardConn->SetAttribute("padding", "16,12,16,14");
     cardConn->SetAttribute("child_margin_y", "8");
     // hug the content: with every row at a fixed height the card is exactly
     // as tall as its fields, so it can never be squeezed into a collapse
@@ -521,8 +527,8 @@ void MainWindow::OnInitWindow()
     headSpacer->SetMouseEnabled(false);
     headRow->AddItem(headSpacer);
     m_settingsBtn = MakeIconButton(VectorArt::Icon::Gear, "settings.openSettings", "");
-    m_settingsBtn->SetAttribute("width", "28");
-    m_settingsBtn->SetAttribute("height", "28");
+    m_settingsBtn->SetAttribute("width", "30");
+    m_settingsBtn->SetAttribute("height", "30");
     m_settingsBtn->AttachClick([this](const ui::EventArgs&) {
         SettingsWindow* w = new SettingsWindow();
         w->CreateWnd(this, ui::WindowCreateParam("StarDesk", true));
@@ -554,8 +560,8 @@ void MainWindow::OnInitWindow()
     ui::HBox* row3 = makeRow(cardConn, "32");
     m_connectBtn = new AccentButton(this);
     m_connectBtn->SetText(SDK_TR("client.connect"));
-    m_connectBtn->SetAttribute("width", "110");
-    m_connectBtn->SetAttribute("height", "32");
+    m_connectBtn->SetAttribute("width", "124");
+    m_connectBtn->SetAttribute("height", "38");
     m_connectBtn->AttachClick([this](const ui::EventArgs&) {
         OnConnectClicked();
         return true;
@@ -571,20 +577,20 @@ void MainWindow::OnInitWindow()
 
     // ---- file tab ----
     m_panelFile = new ui::VBox(this);
-    m_panelFile->SetAttribute("child_margin_y", "10");
+    m_panelFile->SetAttribute("child_margin_y", "12");
     m_panelFile->SetVisible(false);
     mainArea->AddItem(m_panelFile);
 
     // send card
     CardBox* cardSend = new CardBox(this);
-    cardSend->SetAttribute("padding", "12,14,12,14");
+    cardSend->SetAttribute("padding", "16,16,16,16");
     cardSend->SetAttribute("child_margin_y", "8");
     m_panelFile->AddItem(cardSend);
 
     m_sendFileBtn = new AccentButton(this);
     m_sendFileBtn->SetText(SDK_TR("file.title"));
-    m_sendFileBtn->SetAttribute("width", "140");
-    m_sendFileBtn->SetAttribute("height", "34");
+    m_sendFileBtn->SetAttribute("width", "150");
+    m_sendFileBtn->SetAttribute("height", "38");
     m_sendFileBtn->SetAttribute("halign", "left");
     m_sendFileBtn->AttachClick([this](const ui::EventArgs&) {
         OnSendFileClicked();
@@ -593,13 +599,13 @@ void MainWindow::OnInitWindow()
     cardSend->AddItem(m_sendFileBtn);
 
     ThemeLabel* hint = static_cast<ThemeLabel*>(MakeLabel("file.dragHint", ThemeLabel::Role::Sub));
-    hint->SetAttribute("height", "20");
+    hint->SetAttribute("height", "22");
     cardSend->AddItem(hint);
 
     // receive card
     CardBox* cardReceive = new CardBox(this);
-    cardReceive->SetAttribute("padding", "12,10,12,12");
-    cardReceive->SetAttribute("child_margin_y", "6");
+    cardReceive->SetAttribute("padding", "16,12,16,14");
+    cardReceive->SetAttribute("child_margin_y", "8");
     m_panelFile->AddItem(cardReceive);
 
     ui::HBox* dirRow = new ui::HBox(this);
@@ -615,9 +621,9 @@ void MainWindow::OnInitWindow()
     dirRow->AddItem(dirSpacer);
 
     PillButton* openDirBtn = new PillButton(this);
-    openDirBtn->SetText(SDK_TR("file.openDir"));
-    openDirBtn->SetAttribute("width", "80");
-    openDirBtn->SetAttribute("height", "24");
+    m_lang.SetText(openDirBtn, "file.openDir");
+    openDirBtn->SetAttribute("width", "88");
+    openDirBtn->SetAttribute("height", "28");
     openDirBtn->AttachClick([this](const ui::EventArgs&) {
         OnOpenReceiveDir();
         return true;
@@ -639,17 +645,32 @@ void MainWindow::OnInitWindow()
     cardReceive->AddItem(transferTitle);
 
     m_transferList = new ui::VBox(this);
-    m_transferList->SetAttribute("child_margin_y", "4");
+    m_transferList->SetAttribute("child_margin_y", "6");
     cardReceive->AddItem(m_transferList);
 
     m_transferEmptyLabel = static_cast<ThemeLabel*>(MakeLabel("file.empty", ThemeLabel::Role::Sub));
     m_transferEmptyLabel->SetText(SDK_TR("file.empty"));
-    m_transferEmptyLabel->SetAttribute("height", "22");
+    m_transferEmptyLabel->SetAttribute("height", "24");
     m_transferList->AddItem(m_transferEmptyLabel);
 
     AttachBox(root);
 
     App::Instance().AddListener(this);
+
+    // test hook: STARDESK_TEST_LANG_CYCLE=1 cycles through the 8 languages,
+    // one every 1.5s, so a log-only run can verify that every window re-applies
+    // its strings on a runtime language switch.
+    if (std::getenv("STARDESK_TEST_LANG_CYCLE") != nullptr) {
+        std::thread([this]() {
+            for (int i = 1; i <= (int)Lang::Count; ++i) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+                const Lang lang = (Lang)(i % (int)Lang::Count);
+                PostToUI(ui::UiBind(this, [this, lang]() {
+                    App::Instance().SetLanguage(lang);
+                }));
+            }
+        }).detach();
+    }
     SelectTab(true);
 
     // ---- host service (always listening) ----
@@ -975,7 +996,7 @@ void MainWindow::OnItemUpdated(const FileTransfer::Item& item)
     if (count == 0) {
         m_transferEmptyLabel = static_cast<ThemeLabel*>(MakeLabel("file.empty", ThemeLabel::Role::Sub));
         m_transferEmptyLabel->SetText(SDK_TR("file.empty"));
-        m_transferEmptyLabel->SetAttribute("height", "22");
+        m_transferEmptyLabel->SetAttribute("height", "24");
         m_transferList->AddItem(m_transferEmptyLabel);
     }
     InvalidateAll();
@@ -986,6 +1007,7 @@ void MainWindow::ClearTransferRows()
     if (m_transferList == nullptr) {
         return;
     }
+    m_lang.Unbind(m_transferEmptyLabel);
     m_transferList->RemoveAllItems();
     m_transferEmptyLabel = nullptr;
 }
@@ -1017,7 +1039,7 @@ void MainWindow::RebuildTransferList()
     if (count == 0) {
         m_transferEmptyLabel = static_cast<ThemeLabel*>(MakeLabel("file.empty", ThemeLabel::Role::Sub));
         m_transferEmptyLabel->SetText(SDK_TR("file.empty"));
-        m_transferEmptyLabel->SetAttribute("height", "22");
+        m_transferEmptyLabel->SetAttribute("height", "24");
         m_transferList->AddItem(m_transferEmptyLabel);
     }
 }
@@ -1061,7 +1083,10 @@ void MainWindow::SetLocalAddresses(const std::vector<std::string>& ips)
 
 void MainWindow::SetLanDevices(const std::vector<std::pair<std::string, std::string>>& nameIpPorts)
 {
-    // rebuild the device row list
+    m_lastLanDevices = nameIpPorts;
+    // rebuild the device row list (the empty hint is destroyed and re-created,
+    // so drop its language binding first or Apply() would touch freed memory)
+    m_lang.Unbind(m_deviceEmptyLabel);
     m_deviceList->RemoveAllItems();
     m_deviceEmptyLabel = nullptr;
 
@@ -1097,7 +1122,7 @@ void MainWindow::SetLanDevices(const std::vector<std::pair<std::string, std::str
     if (nameIpPorts.empty()) {
         m_deviceEmptyLabel = static_cast<ThemeLabel*>(MakeLabel("client.noDevices", ThemeLabel::Role::Sub));
         m_deviceEmptyLabel->SetText(SDK_TR("client.noDevices"));
-        m_deviceEmptyLabel->SetAttribute("height", "24");
+        m_deviceEmptyLabel->SetAttribute("height", "26");
         m_deviceList->AddItem(m_deviceEmptyLabel);
     }
 }
@@ -1128,6 +1153,8 @@ void MainWindow::ApplyTheme()
 
 void MainWindow::ApplyLanguage()
 {
+    fprintf(stderr, "[lang] MainWindow::ApplyLanguage\n");
+    m_lang.Apply();
     m_langBtn->SetText(Language::NativeName(Language::Get()));
 
     m_tabRemote->SetText(SDK_TR("client.title"));
@@ -1148,6 +1175,13 @@ void MainWindow::ApplyLanguage()
     m_remotePortEdit->SetAttribute("prompt_text", SDK_TR("client.port"));
     m_remotePwdEdit->SetAttribute("prompt_text", SDK_TR("client.password"));
     m_hostPwdEdit->SetAttribute("prompt_text", SDK_TR("host.password"));
+    if (m_pwdShowBtn != nullptr) {
+        m_pwdShowBtn->SetToolTipText(
+            SDK_TR(m_pwdVisible ? "host.hidePassword" : "host.showPassword"));
+    }
+    // rows/hints that embed translated text are rebuilt in the new language
+    SetLanDevices(m_lastLanDevices);
+    RebuildTransferList();
 
     InvalidateAll();
 }

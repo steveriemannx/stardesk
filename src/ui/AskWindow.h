@@ -5,6 +5,7 @@
 
 #include "../app/AppConfig.h"
 #include "../session/HostSession.h"
+#include "LangBinder.h"
 #include "VectorArt.h"
 
 namespace sdk {
@@ -33,6 +34,7 @@ public:
     void ApplyLanguage();
 
 private:
+    LangBinder m_lang;
     AskInfo m_info;
     ResultCb m_cb;
     bool m_done = false;

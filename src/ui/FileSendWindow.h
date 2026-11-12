@@ -4,6 +4,7 @@
 #include "dui/dui.h"
 
 #include "../app/AppConfig.h"
+#include "LangBinder.h"
 #include "VectorArt.h"
 
 namespace sdk {
@@ -32,6 +33,7 @@ public:
     void ApplyLanguage();
 
 private:
+    LangBinder m_lang;
     struct Row {
         uint32_t id = 0;
         std::string name;

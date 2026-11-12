@@ -260,11 +260,12 @@ void IconButton::Paint(IRender* pRender, const UiRect& rcPaint)
 
     // hover / press background
     const ui::ControlStateType state = GetState();
+    const float bgRadius = std::min(rc.Width(), rc.Height()) / 2.0f;
     if (state == ui::kControlStateHot) {
-        pRender->FillRoundRect(UiRectF::MakeFromRect(rc), 5.0f, 5.0f, p.hoverBg, 255);
+        pRender->FillRoundRect(UiRectF::MakeFromRect(rc), bgRadius, bgRadius, p.hoverBg, 255);
     }
     else if (state == ui::kControlStatePushed) {
-        pRender->FillRoundRect(UiRectF::MakeFromRect(rc), 5.0f, 5.0f, p.pressedBg, 255);
+        pRender->FillRoundRect(UiRectF::MakeFromRect(rc), bgRadius, bgRadius, p.pressedBg, 255);
     }
 
     UiColor color = IconNormalColor();
@@ -301,7 +302,7 @@ void AccentButton::Paint(IRender* pRender, const UiRect& rcPaint)
     else if (!IsEnabled()) {
         bg = p.border;
     }
-    pRender->FillRoundRect(UiRectF::MakeFromRect(rc), 5.0f, 5.0f, bg, 255);
+    pRender->FillRoundRect(UiRectF::MakeFromRect(rc), 8.0f, 8.0f, bg, 255);
     PaintText(pRender, rcPaint);
 }
 
@@ -315,7 +316,7 @@ void AccentButton::PaintText(IRender* pRender, const UiRect& rcPaint)
     ui::DrawStringParam param;
     param.textRect = GetRect();
     param.dwTextColor = m_textColor;
-    param.pFont = GetIFontById("system_12");
+    param.pFont = GetIFontById("system_bold_12");
     param.uFormat = ui::TEXT_HCENTER | ui::TEXT_VCENTER;
     pRender->DrawString(text, param);
 }
@@ -340,17 +341,21 @@ void PillButton::Paint(IRender* pRender, const UiRect& rcPaint)
     UiColor bg = p.panelBg;
     UiColor border = p.border;
     if (m_selected) {
-        bg = p.accent;
-        border = p.accent;
+        bg = (state == ui::kControlStateHot)   ? p.accentHover
+             : (state == ui::kControlStatePushed) ? p.accentPressed
+                                                  : p.accent;
+        border = bg;
     }
     else if (state == ui::kControlStateHot) {
         bg = p.hoverBg;
+        border = p.border;
     }
     else if (state == ui::kControlStatePushed) {
         bg = p.pressedBg;
     }
-    pRender->FillRoundRect(UiRectF::MakeFromRect(rc), 5.0f, 5.0f, bg, 255);
-    pRender->DrawRoundRect(UiRectF::MakeFromRect(rc), 5.0f, 5.0f, border, 1.0f);
+    const float radius = std::min(rc.Height() / 2.0f, 14.0f);
+    pRender->FillRoundRect(UiRectF::MakeFromRect(rc), radius, radius, bg, 255);
+    pRender->DrawRoundRect(UiRectF::MakeFromRect(rc), radius, radius, border, 1.0f);
     PaintText(pRender, rcPaint);
 }
 
@@ -380,11 +385,13 @@ void ProgressBar::Paint(ui::IRender* pRender, const UiRect& rcPaint)
 {
     const Palette& p = Theme::Get();
     const UiRect rc = GetRect();
-    pRender->FillRoundRect(UiRectF::MakeFromRect(rc), 3.0f, 3.0f, p.progressBg, 255);
+    const float barRadius = rc.Height() / 2.0f;
+    pRender->FillRoundRect(UiRectF::MakeFromRect(rc), barRadius, barRadius, p.progressBg, 255);
     if (m_ratio > 0.0) {
         const int w = std::max(2, (int)(rc.Width() * m_ratio));
         UiRect fill(rc.left, rc.top, rc.left + w, rc.bottom);
-        pRender->FillRoundRect(UiRectF::MakeFromRect(fill), 3.0f, 3.0f, p.progressFg, 255);
+        pRender->FillRoundRect(UiRectF::MakeFromRect(fill), barRadius, barRadius,
+                               p.progressFg, 255);
     }
 }
 
@@ -398,8 +405,8 @@ void CardBox::Paint(IRender* pRender, const UiRect& rcPaint)
 {
     const Palette& p = Theme::Get();
     const UiRect rc = GetRect();
-    pRender->FillRoundRect(UiRectF::MakeFromRect(rc), 6.0f, 6.0f, p.panelBg, 255);
-    pRender->DrawRoundRect(UiRectF::MakeFromRect(rc), 6.0f, 6.0f, p.border, 1.0f);
+    pRender->FillRoundRect(UiRectF::MakeFromRect(rc), 12.0f, 12.0f, p.panelBg, 255);
+    pRender->DrawRoundRect(UiRectF::MakeFromRect(rc), 12.0f, 12.0f, p.border, 1.0f);
     BaseClass::Paint(pRender, rcPaint);
 }
 

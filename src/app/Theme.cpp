@@ -11,25 +11,25 @@ bool Theme::s_isDark = false; // light by default
 const Palette& Theme::Dark()
 {
     static const Palette p = {
-        ui::UiColor(0xFF14171C), // windowBg
-        ui::UiColor(0xFF1B1F26), // panelBg
-        ui::UiColor(0xFF22272F), // inputBg
-        ui::UiColor(0xFF262C36), // hoverBg
-        ui::UiColor(0xFF2F3642), // pressedBg
-        ui::UiColor(0xFF2E3540), // border
-        ui::UiColor(0xFFE6E9EE), // textMain
-        ui::UiColor(0xFF8A93A3), // textSub
+        ui::UiColor(0xFF0F1115), // windowBg
+        ui::UiColor(0xFF171A21), // panelBg
+        ui::UiColor(0xFF1F232B), // inputBg
+        ui::UiColor(0xFF242A34), // hoverBg
+        ui::UiColor(0xFF2B323E), // pressedBg
+        ui::UiColor(0xFF2C333E), // border
+        ui::UiColor(0xFFE8EAED), // textMain
+        ui::UiColor(0xFF9AA3AF), // textSub
         ui::UiColor(0xFFFFFFFF), // textInvert
-        ui::UiColor(0xFFA9B2BF), // prompt (brighter on dark)
+        ui::UiColor(0xFF7D8694), // prompt
         ui::UiColor(0xFF4F7CF7), // accent
-        ui::UiColor(0xFF6B91F9), // accentHover
+        ui::UiColor(0xFF6B93FF), // accentHover
         ui::UiColor(0xFF3D67E8), // accentPressed
-        ui::UiColor(0xFF34C77C), // success
-        ui::UiColor(0xFFE5504D), // danger
-        ui::UiColor(0xFF2E3540), // progressBg
+        ui::UiColor(0xFF34D399), // success
+        ui::UiColor(0xFFF87171), // danger
+        ui::UiColor(0xFF2C333E), // progressBg
         ui::UiColor(0xFF4F7CF7), // progressFg
-        ui::UiColor(0xFF232932), // listHover
-        ui::UiColor(0xFF2A3240), // listSelected
+        ui::UiColor(0xFF1F242C), // listHover
+        ui::UiColor(0xFF232B38), // listSelected
         ui::UiColor(0xFF14171C), // captionBg
     };
     return p;
@@ -38,26 +38,26 @@ const Palette& Theme::Dark()
 const Palette& Theme::Light()
 {
     static const Palette p = {
-        ui::UiColor(0xFFF5F6F8), // windowBg
+        ui::UiColor(0xFFF4F5F7), // windowBg
         ui::UiColor(0xFFFFFFFF), // panelBg
         ui::UiColor(0xFFFFFFFF), // inputBg
-        ui::UiColor(0xFFECEEF2), // hoverBg
-        ui::UiColor(0xFFE0E4EA), // pressedBg
-        ui::UiColor(0xFFD9DEE6), // border
-        ui::UiColor(0xFF1F2329), // textMain
+        ui::UiColor(0xFFF1F3F6), // hoverBg
+        ui::UiColor(0xFFE6E9EF), // pressedBg
+        ui::UiColor(0xFFE3E6EB), // border
+        ui::UiColor(0xFF111827), // textMain
         ui::UiColor(0xFF6B7280), // textSub
         ui::UiColor(0xFFFFFFFF), // textInvert
-        ui::UiColor(0xFF9AA1AB), // prompt
-        ui::UiColor(0xFF2E6BFF), // accent
-        ui::UiColor(0xFF4D82FF), // accentHover
-        ui::UiColor(0xFF1F5AE6), // accentPressed
-        ui::UiColor(0xFF16A34A), // success
-        ui::UiColor(0xFFDC2626), // danger
-        ui::UiColor(0xFFE5E8ED), // progressBg
-        ui::UiColor(0xFF2E6BFF), // progressFg
-        ui::UiColor(0xFFF0F2F5), // listHover
-        ui::UiColor(0xFFE3E9F5), // listSelected
-        ui::UiColor(0xFFF5F6F8), // captionBg
+        ui::UiColor(0xFF9CA3AF), // prompt
+        ui::UiColor(0xFF2563EB), // accent
+        ui::UiColor(0xFF3B82F6), // accentHover
+        ui::UiColor(0xFF1D4ED8), // accentPressed
+        ui::UiColor(0xFF10B981), // success
+        ui::UiColor(0xFFEF4444), // danger
+        ui::UiColor(0xFFE5E7EB), // progressBg
+        ui::UiColor(0xFF2563EB), // progressFg
+        ui::UiColor(0xFFF3F4F6), // listHover
+        ui::UiColor(0xFFE8F0FE), // listSelected
+        ui::UiColor(0xFFFFFFFF), // captionBg
     };
     return p;
 }

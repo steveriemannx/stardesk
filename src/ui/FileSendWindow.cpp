@@ -34,8 +34,8 @@ std::string FileSendWindow::GetSkinFile() { return ""; }
 void FileSendWindow::GetCreateWindowAttributes(ui::WindowCreateAttributes& attrs)
 {
     attrs.m_bInitSizeDefined = true;
-    attrs.m_szInitSize.cx = 560;
-    attrs.m_szInitSize.cy = 460;
+    attrs.m_szInitSize.cx = 600;
+    attrs.m_szInitSize.cy = 500;
     // system shadow: non-layered window + shadow attached, like the XML
     // configuration layered_window="false" shadow_attached="true" (two shadow
     // implementations exist: layered -> transparent self-drawn shadow,
@@ -85,7 +85,7 @@ void FileSendWindow::OnInitWindow()
 
     ThemeLabel* title = new ThemeLabel(this);
     title->SetRole(ThemeLabel::Role::Main);
-    title->SetText(SDK_TR("file.title"));
+    m_lang.SetText(title, "file.title");
     title->SetAttribute("font", "system_bold_12");
     title->SetAttribute("width", "auto");
     title->SetAttribute("margin", "12,0,0,0");
@@ -97,22 +97,22 @@ void FileSendWindow::OnInitWindow()
 
     IconButton* closeBtn = new IconButton(this);
     closeBtn->SetIcon(VectorArt::Icon::Close);
-    closeBtn->SetIconToolTip(SDK_TR("window.close"));
+    m_lang.BindToolTip(closeBtn, "window.close");
     closeBtn->SetName("closebtn");
     closeBtn->SetAttribute("width", "28");
-    closeBtn->SetAttribute("height", "26");
+    closeBtn->SetAttribute("height", "28");
     closeBtn->SetAttribute("margin", "0,3,4,3");
     caption->AddItem(closeBtn);
 
     // body
     ui::VBox* body = new ui::VBox(this);
-    body->SetAttribute("padding", "14,12,14,12");
+    body->SetAttribute("padding", "16,14,16,14");
     body->SetAttribute("child_margin_y", "8");
     root->AddItem(body);
 
     // drop zone
     m_dropCard = new CardBox(this);
-    m_dropCard->SetAttribute("height", "72");
+    m_dropCard->SetAttribute("height", "84");
     m_dropCard->SetAttribute("padding", "10,10,10,10");
     m_dropCard->AttachDropData([this](const ui::EventArgs& args) {
         OnFileDropped(args);
@@ -122,7 +122,7 @@ void FileSendWindow::OnInitWindow()
 
     m_dropHint = new ThemeLabel(this);
     m_dropHint->SetRole(ThemeLabel::Role::Sub);
-    m_dropHint->SetText(SDK_TR("file.dragHint"));
+    m_lang.SetText(m_dropHint, "file.dragHint");
     m_dropHint->SetAttribute("width", "stretch");
     m_dropHint->SetAttribute("text_align", "hcenter,vcenter");
     m_dropCard->AddItem(m_dropHint);
@@ -133,9 +133,9 @@ void FileSendWindow::OnInitWindow()
     body->AddItem(btnRow);
 
     PillButton* browseBtn = new PillButton(this);
-    browseBtn->SetText(SDK_TR("file.addFiles"));
+    m_lang.SetText(browseBtn, "file.addFiles");
     browseBtn->SetAttribute("width", "96");
-    browseBtn->SetAttribute("height", "28");
+    browseBtn->SetAttribute("height", "32");
     browseBtn->AttachClick([this](const ui::EventArgs&) {
         OnBrowse();
         return true;
@@ -145,7 +145,7 @@ void FileSendWindow::OnInitWindow()
     m_sendBtn = new AccentButton(this);
     m_sendBtn->SetText(SDK_TR("file.send"));
     m_sendBtn->SetAttribute("width", "96");
-    m_sendBtn->SetAttribute("height", "28");
+    m_sendBtn->SetAttribute("height", "32");
     m_sendBtn->AttachClick([this](const ui::EventArgs&) {
         OnSend();
         return true;
@@ -249,7 +249,7 @@ void FileSendWindow::RebuildRows()
         row.size = f.GetFileSize();
 
         row.card = new CardBox(this);
-        row.card->SetAttribute("height", "46");
+        row.card->SetAttribute("height", "50");
         row.card->SetAttribute("padding", "10,6,10,6");
         m_list->AddItem(row.card);
 
@@ -272,7 +272,7 @@ void FileSendWindow::RebuildRows()
 
         row.progress = new ProgressBar(this);
         row.progress->SetAttribute("width", "120");
-        row.progress->SetAttribute("height", "8");
+        row.progress->SetAttribute("height", "10");
         row.card->AddItem(row.progress);
 
         row.cancelBtn = new IconButton(this);
@@ -373,8 +373,12 @@ void FileSendWindow::ApplyTheme()
 
 void FileSendWindow::ApplyLanguage()
 {
-    m_dropHint->SetText(SDK_TR("file.dragHint"));
+    fprintf(stderr, "[lang] FileSendWindow::ApplyLanguage\n");
+    m_lang.Apply();
     m_sendBtn->SetText(SDK_TR("file.send"));
+    if (m_emptyLabel != nullptr) {
+        m_emptyLabel->SetText(SDK_TR("file.empty"));
+    }
     for (auto& row : m_rows) {
         if (row.statusLabel) {
             const auto it = m_items.find(row.id);

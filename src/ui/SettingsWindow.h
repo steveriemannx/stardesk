@@ -4,6 +4,7 @@
 #include "dui/dui.h"
 
 #include "../app/AppConfig.h"
+#include "LangBinder.h"
 #include "VectorArt.h"
 
 namespace sdk {
@@ -32,6 +33,7 @@ public:
     void ApplyLanguage();
 
 private:
+    LangBinder m_lang;
     PillButton* MakePill(const char* key);
 
     // option rows (values are persisted to AppConfig)
