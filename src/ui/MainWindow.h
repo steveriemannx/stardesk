@@ -13,6 +13,8 @@
 
 namespace sdk {
 
+class CardHBox;
+
 class RemoteWindow;
 
 /** StarDesk main window: host panel (left) + remote-control / file tabs (right).
@@ -50,6 +52,11 @@ public:
     /** Refresh the LAN device discovery list. */
     /** Selected LAN/manual device row (click to select, double-click to fill). */
     std::string m_selectedDeviceIpPort;
+    /** Row controls of the current device list (for in-place selection paint). */
+    std::vector<std::pair<std::string, CardHBox*>> m_deviceRows;
+    std::vector<std::pair<std::string, ThemeLabel*>> m_deviceNameLabels;
+    bool m_deviceRowClicked = false;
+    void ApplyDeviceSelection();
     /** Reverse remote-assistance: token handed to the peer in the invitation. */
     uint8_t m_inviteToken[32] = {0};
     bool m_useInviteToken = false;

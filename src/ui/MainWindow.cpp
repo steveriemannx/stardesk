@@ -657,6 +657,23 @@ void MainWindow::OnInitWindow()
     m_deviceList->SetAttribute("child_margin_y", "4");
     m_deviceList->SetAttribute("height", "stretch");
     cardDevices->AddItem(m_deviceList);
+    cardDevices->AttachClick([this](const ui::EventArgs&) {
+        // runs for row clicks too: let the row handler run first, then decide
+        // whether this was really a click on the empty area
+        PostToUI(ui::UiBind(this, [this]() {
+            if (m_deviceRowClicked) {
+                m_deviceRowClicked = false;
+                return;
+            }
+            if (!m_selectedDeviceIpPort.empty()) {
+                fprintf(stderr, "[ui] device list blank click\n");
+                fflush(stderr);
+                m_selectedDeviceIpPort.clear();
+                ApplyDeviceSelection();
+            }
+        }));
+        return true;
+    });
 
     m_deviceEmptyLabel = static_cast<ThemeLabel*>(MakeLabel("file.empty", ThemeLabel::Role::Sub));
     m_deviceEmptyLabel->SetText(SDK_TR("file.empty"));
@@ -1505,6 +1522,8 @@ void MainWindow::SetLanDevices(const std::vector<std::pair<std::string, std::str
 
     // manually added devices come first and survive discovery updates
     std::unordered_set<std::string> manualIpPorts;
+    m_deviceRows.clear();
+    m_deviceNameLabels.clear();
     std::vector<std::pair<std::string, std::string>> visible;
     visible.reserve(nameIpPorts.size() + App::Instance().Config().manualDevices.size());
     for (const auto& manual : App::Instance().Config().manualDevices) {
@@ -1580,30 +1599,31 @@ void MainWindow::SetLanDevices(const std::vector<std::pair<std::string, std::str
                 m_remotePortEdit->SetText(ipPort.substr(colon + 1));
             }
         };
-        const bool rowSelected = (ipPort == m_selectedDeviceIpPort);
-        row->SetSelected(rowSelected);
-        if (rowSelected) {
-            nameLabel->SetRole(ThemeLabel::Role::Accent); // obvious even on dark
+        row->SetSelected(ipPort == m_selectedDeviceIpPort);
+        if (ipPort == m_selectedDeviceIpPort) {
+            nameLabel->SetRole(ThemeLabel::Role::Accent);
         }
+        m_deviceRows.emplace_back(ipPort, row);
+        m_deviceNameLabels.emplace_back(ipPort, nameLabel);
         row->AttachClick([this, ipPort](const ui::EventArgs&) {
             if (m_manageDevices) {
                 return true;
             }
             fprintf(stderr, "[ui] device row click: %s\n", ipPort.c_str());
             fflush(stderr);
+            m_deviceRowClicked = true;
             m_selectedDeviceIpPort = ipPort;
-            SetLanDevices(m_lastLanDevices); // rebuild the rows with the highlight
-            InvalidateAll();                 // and actually repaint them
+            ApplyDeviceSelection();
             return true;
         });
         row->AttachDoubleClick([this, ipPort, fillFromRow](const ui::EventArgs&) {
             if (m_manageDevices) {
                 return true;
             }
+            m_deviceRowClicked = true;
             m_selectedDeviceIpPort = ipPort;
             fillFromRow();
-            SetLanDevices(m_lastLanDevices);
-            InvalidateAll();
+            ApplyDeviceSelection();
             return true;
         });
         m_deviceList->AddItem(row);
@@ -1619,21 +1639,7 @@ void MainWindow::SetLanDevices(const std::vector<std::pair<std::string, std::str
         m_deviceList->AddItem(m_deviceEmptyLabel);
     }
 
-    // click target for the empty area: a sibling of the rows, not their parent
-    ui::Control* filler = new ui::Control(this);
-    filler->SetAttribute("width", "stretch");
-    filler->SetAttribute("height", "stretch");
-    filler->AttachClick([this](const ui::EventArgs&) {
-        fprintf(stderr, "[ui] device list blank click\n");
-        fflush(stderr);
-        if (!m_selectedDeviceIpPort.empty()) {
-            m_selectedDeviceIpPort.clear();
-            SetLanDevices(m_lastLanDevices);
-            InvalidateAll();
-        }
-        return true;
-    });
-    m_deviceList->AddItem(filler);
+    ApplyDeviceSelection();
 
     if (m_manageDevices && !m_hiddenDevices.empty()) {
         PillButton* restoreBtn = new PillButton(this);
@@ -1647,6 +1653,18 @@ void MainWindow::SetLanDevices(const std::vector<std::pair<std::string, std::str
         });
         m_deviceList->AddItem(restoreBtn);
     }
+}
+
+void MainWindow::ApplyDeviceSelection()
+{
+    for (auto& entry : m_deviceRows) {
+        entry.second->SetSelected(entry.first == m_selectedDeviceIpPort);
+    }
+    for (auto& entry : m_deviceNameLabels) {
+        entry.second->SetRole(entry.first == m_selectedDeviceIpPort ? ThemeLabel::Role::Accent
+                                                                    : ThemeLabel::Role::Main);
+    }
+    InvalidateAll();
 }
 
 void MainWindow::UpdateManageButton()
