@@ -88,6 +88,11 @@ private:
     PillButton* m_mirrorPill = nullptr;
     PillButton* m_extendPill = nullptr;
     ThemeLabel* m_hostStatusLabel = nullptr;
+    /** Permission warning shown under the host status (macOS accessibility). */
+    ThemeLabel* m_permissionHint = nullptr;
+    PillButton* m_permissionBtn = nullptr;
+    /** Local interface addresses, used to filter our own discovery beacons. */
+    std::vector<std::string> m_localAddresses;
 
     // right side
     PillButton* m_tabRemote = nullptr;

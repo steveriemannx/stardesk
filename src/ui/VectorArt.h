@@ -76,9 +76,12 @@ public:
     void PaintText(ui::IRender* pRender, const ui::UiRect& rcPaint);
 
     void SetAccentTextColor(const ui::UiColor& c) { m_textColor = c; }
+    /** Destructive styling: use the theme's danger colour (e.g. 断开). */
+    void SetDangerLook(bool danger) { m_danger = danger; }
 
 private:
     ui::UiColor m_textColor;
+    bool m_danger = false;
 };
 
 /** A pill-shaped toggle button, fully code-drawn: normal = panel bg + border,

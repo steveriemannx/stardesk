@@ -3,10 +3,12 @@
 #include "../app/AppConfig.h"
 #include "../app/Language.h"
 #include "../app/Theme.h"
+#include "../TextProbe.h"
 #include "../net/Socket.h"
 #include "../platform/InputInject.h"
 #include "../ui/AskWindow.h"
 
+#include "dui/Core/GlobalManager.h"
 #include "dui/Utils/FilePathUtil.h"
 #include "../ui/FileSendWindow.h"
 #include "../ui/RemoteWindow.h"
@@ -302,6 +304,7 @@ void MainWindow::OnInitWindow()
     CardBox* cardDevice = new CardBox(this);
     cardDevice->SetAttribute("padding", "16,12,16,14");
     cardDevice->SetAttribute("child_margin_y", "8");
+    cardDevice->SetAttribute("height", "auto");
     m_sidebar->AddItem(cardDevice);
 
     ThemeLabel* t1 = static_cast<ThemeLabel*>(MakeLabel("host.device", ThemeLabel::Role::Title));
@@ -324,11 +327,13 @@ void MainWindow::OnInitWindow()
     CardBox* cardPassword = new CardBox(this);
     cardPassword->SetAttribute("padding", "16,12,16,14");
     cardPassword->SetAttribute("child_margin_y", "8");
+    cardPassword->SetAttribute("height", "auto");
     m_sidebar->AddItem(cardPassword);
 
     cardPassword->AddItem(MakeLabel("host.password", ThemeLabel::Role::Title));
 
     ui::HBox* pwdRow = new ui::HBox(this);
+    pwdRow->SetAttribute("height", "34");
     pwdRow->SetAttribute("child_margin_x", "4");
     cardPassword->AddItem(pwdRow);
 
@@ -364,11 +369,13 @@ void MainWindow::OnInitWindow()
     CardBox* cardAccept = new CardBox(this);
     cardAccept->SetAttribute("padding", "16,12,16,14");
     cardAccept->SetAttribute("child_margin_y", "8");
+    cardAccept->SetAttribute("height", "auto");
     m_sidebar->AddItem(cardAccept);
 
     cardAccept->AddItem(MakeLabel("host.acceptMode", ThemeLabel::Role::Title));
 
     ui::HBox* acceptRow = new ui::HBox(this);
+    acceptRow->SetAttribute("height", "30");
     acceptRow->SetAttribute("child_margin_x", "6");
     cardAccept->AddItem(acceptRow);
 
@@ -405,11 +412,13 @@ void MainWindow::OnInitWindow()
     CardBox* cardShare = new CardBox(this);
     cardShare->SetAttribute("padding", "16,12,16,14");
     cardShare->SetAttribute("child_margin_y", "8");
+    cardShare->SetAttribute("height", "auto");
     m_sidebar->AddItem(cardShare);
 
     cardShare->AddItem(MakeLabel("host.shareMode", ThemeLabel::Role::Title));
 
     ui::HBox* shareRow = new ui::HBox(this);
+    shareRow->SetAttribute("height", "30");
     shareRow->SetAttribute("child_margin_x", "6");
     cardShare->AddItem(shareRow);
 
@@ -446,6 +455,7 @@ void MainWindow::OnInitWindow()
     CardBox* cardStatus = new CardBox(this);
     cardStatus->SetAttribute("padding", "16,12,16,14");
     cardStatus->SetAttribute("child_margin_y", "8");
+    cardStatus->SetAttribute("height", "auto");
     m_sidebar->AddItem(cardStatus);
 
     cardStatus->AddItem(MakeLabel("host.status", ThemeLabel::Role::Title));
@@ -456,6 +466,30 @@ void MainWindow::OnInitWindow()
     m_hostStatusLabel->SetAttribute("text_align", "left,top");
     m_hostStatusLabel->SetAttribute("multi_line", "true");
     cardStatus->AddItem(m_hostStatusLabel);
+
+    // permission warnings get their own line so the listening status is not
+    // replaced by the hint
+    m_permissionHint = static_cast<ThemeLabel*>(MakeLabel("", ThemeLabel::Role::Danger));
+    m_permissionHint->SetAttribute("width", "stretch");
+    m_permissionHint->SetAttribute("text_align", "left,top");
+    m_permissionHint->SetAttribute("multi_line", "true");
+    m_permissionHint->SetVisible(false);
+    cardStatus->AddItem(m_permissionHint);
+
+    m_permissionBtn = new PillButton(this);
+    m_lang.SetText(m_permissionBtn, "client.openSettings");
+    m_permissionBtn->SetAttribute("width", "auto");
+    m_permissionBtn->SetAttribute("padding", "12,0,12,0");
+    m_permissionBtn->SetAttribute("height", "28");
+    m_permissionBtn->SetVisible(false);
+    cardStatus->AddItem(m_permissionBtn);
+
+    // flexible spacer: cards keep their natural height, remaining sidebar space
+    // stays empty instead of stretching every card
+    ui::Control* sidebarSpacer = new ui::Control(this);
+    sidebarSpacer->SetMouseEnabled(false);
+    sidebarSpacer->SetAttribute("height", "stretch");
+    m_sidebar->AddItem(sidebarSpacer);
 
     // ================= right side =================
     ui::VBox* mainArea = new ui::VBox(this);
@@ -498,6 +532,7 @@ void MainWindow::OnInitWindow()
     CardBox* cardDevices = new CardBox(this);
     cardDevices->SetAttribute("padding", "16,12,16,14");
     cardDevices->SetAttribute("child_margin_y", "6");
+    cardDevices->SetAttribute("height", "stretch");
     m_panelRemote->AddItem(cardDevices);
 
     ui::HBox* devicesHead = new ui::HBox(this);
@@ -588,7 +623,7 @@ void MainWindow::OnInitWindow()
 
     // password row
     ui::HBox* row2 = makeRow(cardConn, "34");
-    row2->AddItem(makeFieldLabel("client.password"));
+    row2->AddItem(makeFieldLabel("client.remotePassword"));
     m_remotePwdEdit = MakeEdit("client.password", true);
     row2->AddItem(m_remotePwdEdit);
 
@@ -622,33 +657,41 @@ void MainWindow::OnInitWindow()
 
     // send card
     CardBox* cardSend = new CardBox(this);
-    cardSend->SetAttribute("padding", "16,16,16,16");
-    cardSend->SetAttribute("child_margin_y", "8");
+    cardSend->SetAttribute("padding", "16,14,16,14");
+    cardSend->SetAttribute("height", "auto");
     m_panelFile->AddItem(cardSend);
+
+    ui::HBox* sendRow = new ui::HBox(this);
+    sendRow->SetAttribute("child_margin_x", "12");
+    sendRow->SetAttribute("height", "40");
+    cardSend->AddItem(sendRow);
+
+    ThemeLabel* hint = static_cast<ThemeLabel*>(MakeLabel("file.dragHint", ThemeLabel::Role::Sub));
+    hint->SetAttribute("width", "stretch");
+    hint->SetAttribute("height", "stretch");
+    hint->SetAttribute("text_align", "left,vcenter");
+    sendRow->AddItem(hint);
 
     m_sendFileBtn = new AccentButton(this);
     m_sendFileBtn->SetText(SDK_TR("file.title"));
-    m_sendFileBtn->SetAttribute("width", "150");
+    m_sendFileBtn->SetAttribute("width", "140");
     m_sendFileBtn->SetAttribute("height", "38");
-    m_sendFileBtn->SetAttribute("halign", "left");
     m_sendFileBtn->AttachClick([this](const ui::EventArgs&) {
         OnSendFileClicked();
         return true;
     });
-    cardSend->AddItem(m_sendFileBtn);
-
-    ThemeLabel* hint = static_cast<ThemeLabel*>(MakeLabel("file.dragHint", ThemeLabel::Role::Sub));
-    hint->SetAttribute("height", "22");
-    cardSend->AddItem(hint);
+    sendRow->AddItem(m_sendFileBtn);
 
     // receive card
     CardBox* cardReceive = new CardBox(this);
     cardReceive->SetAttribute("padding", "16,12,16,14");
     cardReceive->SetAttribute("child_margin_y", "8");
+    cardReceive->SetAttribute("height", "stretch");
     m_panelFile->AddItem(cardReceive);
 
     ui::HBox* dirRow = new ui::HBox(this);
     dirRow->SetAttribute("child_margin_x", "6");
+    dirRow->SetAttribute("height", "28");
     cardReceive->AddItem(dirRow);
 
     ThemeLabel* dirTitle = static_cast<ThemeLabel*>(MakeLabel("host.fileSaveDir", ThemeLabel::Role::Title));
@@ -676,20 +719,25 @@ void MainWindow::OnInitWindow()
     }
     m_receiveDirLabel->SetText(receiveDir);
     m_receiveDirLabel->SetAttribute("width", "stretch");
-    m_receiveDirLabel->SetAttribute("text_align", "left,top");
-    m_receiveDirLabel->SetAttribute("multi_line", "true");
+    m_receiveDirLabel->SetAttribute("height", "22");
+    m_receiveDirLabel->SetAttribute("text_align", "left,vcenter");
     cardReceive->AddItem(m_receiveDirLabel);
 
-    ThemeLabel* transferTitle = static_cast<ThemeLabel*>(MakeLabel("file.status", ThemeLabel::Role::Title));
+    ThemeLabel* transferTitle = static_cast<ThemeLabel*>(MakeLabel("file.transfers", ThemeLabel::Role::Title));
+    transferTitle->SetAttribute("height", "22");
+    transferTitle->SetAttribute("margin", "0,4,0,0");
     cardReceive->AddItem(transferTitle);
 
     m_transferList = new ui::VBox(this);
     m_transferList->SetAttribute("child_margin_y", "6");
+    m_transferList->SetAttribute("height", "stretch");
     cardReceive->AddItem(m_transferList);
 
     m_transferEmptyLabel = static_cast<ThemeLabel*>(MakeLabel("file.empty", ThemeLabel::Role::Sub));
     m_transferEmptyLabel->SetText(SDK_TR("file.empty"));
-    m_transferEmptyLabel->SetAttribute("height", "24");
+    m_transferEmptyLabel->SetAttribute("width", "stretch");
+    m_transferEmptyLabel->SetAttribute("height", "stretch");
+    m_transferEmptyLabel->SetAttribute("text_align", "hcenter,vcenter");
     m_transferList->AddItem(m_transferEmptyLabel);
 
     AttachBox(root);
@@ -746,8 +794,40 @@ void MainWindow::OnInitWindow()
     }
     // remote input injection needs the Accessibility permission (macOS);
     // without it mouse/keyboard events are silently dropped by the system
-    if (!InputInjector::PermissionGranted()) {
-        SetHostStatus(SDK_TR("remote.accessibilityHint"), false);
+    {
+        std::string permissionHint;
+        std::string permissionTooltip;
+#ifdef __APPLE__
+        if (!InputInjector::PermissionGranted()) {
+            permissionHint = SDK_TR("client.permAccessibilityShort");
+            permissionTooltip = SDK_TR("remote.accessibilityHint");
+        }
+        if (!CGPreflightScreenCaptureAccess()) {
+            if (!permissionHint.empty()) {
+                permissionHint += "\n";
+                permissionTooltip += "\n\n";
+            }
+            permissionHint += SDK_TR("client.permScreenShort");
+            permissionTooltip += SDK_TR("remote.permissionHint");
+        }
+#endif
+        if (!permissionHint.empty()) {
+            m_permissionHint->SetText(permissionHint);
+            m_permissionHint->SetToolTipText(permissionTooltip);
+            m_permissionHint->SetVisible(true);
+            m_permissionBtn->SetVisible(true);
+            m_permissionBtn->AttachClick([](const ui::EventArgs&) {
+#ifdef __APPLE__
+                // jump straight to the pane the user needs to change
+                const char* pane = "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility";
+                std::string command = std::string("open \"") + pane + "\"";
+                if (system(command.c_str()) != 0) {
+                    fprintf(stderr, "[client] open system settings failed\n");
+                }
+#endif
+                return true;
+            });
+        }
     }
     // global file-transfer progress -> transfer list
     App::Instance().FileTx().SetItemCallback([this](const FileTransfer::Item& item) {
@@ -887,6 +967,7 @@ void MainWindow::OnClientState(ClientSession::State state, const std::string& te
     fflush(stderr);
     if (state == ClientSession::State::Connected) {
         m_connectBtn->SetText(SDK_TR("client.disconnect"));
+        m_connectBtn->SetDangerLook(true);
         m_connStatusLabel->SetRole(ThemeLabel::Role::Success);
         m_connStatusLabel->SetText(text);
 
@@ -899,6 +980,7 @@ void MainWindow::OnClientState(ClientSession::State state, const std::string& te
             rw->SetClosedCallback([this]() {
                 PostToUI(ui::UiBind(this, [this]() {
                     m_connectBtn->SetText(SDK_TR("client.connect"));
+                    m_connectBtn->SetDangerLook(false);
                     m_connStatusLabel->SetRole(ThemeLabel::Role::Sub);
                     m_connStatusLabel->SetText(SDK_TR("client.remoteDisconnected"));
                 }));
@@ -1112,11 +1194,12 @@ void MainWindow::SetLocalAddresses(const std::vector<std::string>& ips)
             text += "\n";
         }
         text += ips[i];
-        text += ui::StringUtil::Printf(" : %d", (int)m_actualPort);
+        text += ui::StringUtil::Printf(":%d", (int)m_actualPort);
     }
     if (text.empty()) {
-        text = ui::StringUtil::Printf("127.0.0.1 : %d", (int)m_actualPort);
+        text = ui::StringUtil::Printf("127.0.0.1:%d", (int)m_actualPort);
     }
+    m_localAddresses = ips;
     m_addrLabel->SetText(text);
 }
 
@@ -1129,13 +1212,42 @@ void MainWindow::SetLanDevices(const std::vector<std::pair<std::string, std::str
     m_deviceList->RemoveAllItems();
     m_deviceEmptyLabel = nullptr;
 
-    // hidden peers stay out of the list until restored
+    // hidden peers stay out of the list until restored; our own beacons (this
+    // machine on our own port) are filtered so only other machines are listed
+    auto isSelf = [this](const std::string& ipPort) {
+        const size_t colon = ipPort.find(':');
+        if (colon == std::string::npos) {
+            return false;
+        }
+        const std::string ip = ipPort.substr(0, colon);
+        int port = 0;
+        try {
+            port = std::stoi(ipPort.substr(colon + 1));
+        }
+        catch (...) {
+            return false;
+        }
+        if (port != (int)m_actualPort) {
+            return false;
+        }
+        if (ip == "127.0.0.1" || ip == "::1") {
+            return true;
+        }
+        for (const std::string& localIp : m_localAddresses) {
+            if (localIp == ip) {
+                return true;
+            }
+        }
+        return false;
+    };
+
     std::vector<std::pair<std::string, std::string>> visible;
     visible.reserve(nameIpPorts.size());
     for (const auto& nameIp : nameIpPorts) {
-        if (m_hiddenDevices.count(nameIp.second) == 0) {
-            visible.push_back(nameIp);
+        if (m_hiddenDevices.count(nameIp.second) != 0 || isSelf(nameIp.second)) {
+            continue;
         }
+        visible.push_back(nameIp);
     }
 
     for (const auto& nameIp : visible) {
@@ -1190,12 +1302,12 @@ void MainWindow::SetLanDevices(const std::vector<std::pair<std::string, std::str
     }
 
     if (visible.empty()) {
-        m_deviceEmptyLabel = static_cast<ThemeLabel*>(MakeLabel(
-            m_hiddenDevices.empty() ? "client.noDevices" : "client.allHidden",
-            ThemeLabel::Role::Sub));
-        m_deviceEmptyLabel->SetText(SDK_TR(m_hiddenDevices.empty() ? "client.noDevices"
-                                                                   : "client.allHidden"));
-        m_deviceEmptyLabel->SetAttribute("height", "26");
+        const char* emptyKey = m_hiddenDevices.empty() ? "client.searching" : "client.allHidden";
+        m_deviceEmptyLabel = static_cast<ThemeLabel*>(MakeLabel(emptyKey, ThemeLabel::Role::Sub));
+        m_deviceEmptyLabel->SetText(SDK_TR(emptyKey));
+        m_deviceEmptyLabel->SetAttribute("width", "stretch");
+        m_deviceEmptyLabel->SetAttribute("height", "stretch");
+        m_deviceEmptyLabel->SetAttribute("text_align", "hcenter,vcenter");
         m_deviceList->AddItem(m_deviceEmptyLabel);
     }
 
@@ -1219,6 +1331,7 @@ void MainWindow::UpdateManageButton()
         return;
     }
     m_manageBtn->SetText(SDK_TR(m_manageDevices ? "client.manageDone" : "client.manage"));
+    m_manageBtn->SetSelected(m_manageDevices);
 }
 
 void MainWindow::ToggleManageDevices()
@@ -1291,6 +1404,28 @@ void MainWindow::ApplyLanguage()
 
     // status lines (re-render with the current language)
     SetHostStatus(SDK_TR("host.ready"), true);
+    if (m_permissionHint != nullptr && m_permissionHint->IsVisible()) {
+        std::string permissionHint;
+        std::string permissionTooltip;
+#ifdef __APPLE__
+        if (!InputInjector::PermissionGranted()) {
+            permissionHint = SDK_TR("client.permAccessibilityShort");
+            permissionTooltip = SDK_TR("remote.accessibilityHint");
+        }
+        if (!CGPreflightScreenCaptureAccess()) {
+            if (!permissionHint.empty()) {
+                permissionHint += "\n";
+                permissionTooltip += "\n\n";
+            }
+            permissionHint += SDK_TR("client.permScreenShort");
+            permissionTooltip += SDK_TR("remote.permissionHint");
+        }
+#endif
+        if (!permissionHint.empty()) {
+            m_permissionHint->SetText(permissionHint);
+            m_permissionHint->SetToolTipText(permissionTooltip);
+        }
+    }
 
     // prompt texts per field
     m_remoteIpEdit->SetAttribute("prompt_text", SDK_TR("client.ip"));
@@ -1324,88 +1459,43 @@ LRESULT MainWindow::OnPaintMsg(const ui::UiRect& rcPaint, const ui::NativeMsg& n
 {
     LRESULT result = BaseClass::OnPaintMsg(rcPaint, nativeMsg, bHandled);
 
-    // developer hook: snapshot the real painted window (macOS UI verification)
+    // developer hook: after the first paint, snapshot every open window
+    // (client pixels + control tree) into STARDESK_UI_SHOT_DIR
     static bool sCaptured = false;
-    if (!sCaptured) {
-        const char* snapshotPath = std::getenv("STARDESK_UI_SHOT");
-        if (snapshotPath != nullptr) {
-            sCaptured = true;
-            ui::UiRect rcClientRect;
-            GetClientRect(rcClientRect);
-            ui::UiRect rcWholeRect;
-            GetWindowRect(rcWholeRect);
-            fprintf(stderr, "[shot] client=%d x %d window=%d x %d\n",
-                    rcClientRect.Width(), rcClientRect.Height(),
-                    rcWholeRect.Width(), rcWholeRect.Height());
-            // dump every label with its rect so layout problems are visible
-            std::function<void(ui::Control*, int)> dumpControl = [&](ui::Control* pControl, int depth) {
-                if (pControl == nullptr) {
-                    return;
-                }
-                auto* pLabel = dynamic_cast<ui::Label*>(pControl);
-                const ui::UiRect rc = pControl->GetRect();
-                if (pLabel != nullptr) {
-                    fprintf(stderr, "[tree] %*s%s rect=%d,%d %dx%d text=\"%s\"\n", depth * 2, "",
-                            pControl->GetType().c_str(), rc.left, rc.top, rc.Width(),
-                            rc.Height(), pLabel->GetText().c_str());
-                }
-                auto* pBox = dynamic_cast<ui::Box*>(pControl);
-                if (pBox != nullptr) {
-                    for (size_t i = 0; i < pBox->GetItemCount(); ++i) {
-                        dumpControl(pBox->GetItemAt(i), depth + 1);
-                    }
-                }
-            };
-            dumpControl(GetRoot(), 0);
-            fflush(stderr);
-
-            // try to read the painted pixels back through the render interface
-            ui::IRender* pShotRender = GetRender();
-            if (pShotRender != nullptr) {
-                ui::UiRect rcClientShot;
-                GetClientRect(rcClientShot);
-                const int32_t shotW = rcClientShot.Width();
-                const int32_t shotH = rcClientShot.Height();
-                if (shotW > 0 && shotH > 0) {
-                    std::vector<uint8_t> pixels((size_t)shotW * shotH * 4);
-                    const bool readOk = pShotRender->ReadPixels(
-                        ui::UiRect(0, 0, shotW, shotH), pixels.data(), pixels.size());
-                    fprintf(stderr, "[shot] ReadPixels=%s %dx%d\n", readOk ? "ok" : "failed",
-                            shotW, shotH);
-                    if (readOk) {
-                        FILE* pShotFile = std::fopen(snapshotPath, "wb");
-                        if (pShotFile != nullptr) {
-                            const uint32_t header[2] = {(uint32_t)shotW, (uint32_t)shotH};
-                            std::fwrite(header, sizeof(uint32_t), 2, pShotFile);
-                            std::fwrite(pixels.data(), 1, pixels.size(), pShotFile);
-                            std::fclose(pShotFile);
-                        }
-                    }
-                }
-            }
-            fflush(stderr);
-            ui::IRender* pRender = GetRender();
-            if (pRender != nullptr) {
-                std::shared_ptr<ui::IBitmap> snapshot(pRender->MakeImageSnapshot());
-                if (snapshot) {
-                    const uint32_t width = snapshot->GetWidth();
-                    const uint32_t height = snapshot->GetHeight();
-                    void* pBits = snapshot->LockPixelBits();
-                    if (pBits != nullptr && width > 0 && height > 0) {
-                        FILE* pFile = std::fopen(snapshotPath, "wb");
-                        if (pFile != nullptr) {
-                            const uint32_t header[2] = {width, height};
-                            std::fwrite(header, sizeof(uint32_t), 2, pFile);
-                            std::fwrite(pBits, 1, (size_t)width * height * 4, pFile);
-                            std::fclose(pFile);
-                            fprintf(stderr, "[shot] %s (%ux%u)\n", snapshotPath, width, height);
-                        }
-                        snapshot->UnLockPixelBits();
-                    }
-                }
-            }
-            std::_Exit(0);
+    static const auto sFirstPaint = std::chrono::steady_clock::now();
+    const char* shotDir = std::getenv("STARDESK_UI_SHOT_DIR");
+    const bool shotDelayElapsed =
+        std::chrono::steady_clock::now() - sFirstPaint >= std::chrono::milliseconds(3000);
+    // optional tab switch first, then snapshot on the following paint so the
+    // new tab has actually been laid out
+    static bool sTabApplied = false;
+    if (!sCaptured && shotDir != nullptr && shotDelayElapsed && !sTabApplied) {
+        const char* shotTab = std::getenv("STARDESK_UI_SHOT_TAB");
+        if (shotTab != nullptr && std::string(shotTab) == "file") {
+            sTabApplied = true;
+            SelectTab(false);
+            return result;
         }
+        sTabApplied = true;
+    }
+    if (!sCaptured && shotDir != nullptr && shotDelayElapsed) {
+        sCaptured = true;
+        std::vector<ui::WindowPtr> windows =
+            ui::GlobalManager::Instance().Windows().GetAllWindowList();
+        int index = 0;
+        for (const ui::WindowPtr& pWindow : windows) {
+            if (pWindow.get() == nullptr) {
+                continue;
+            }
+            const std::string base = std::string(shotDir) + "/win" + std::to_string(index);
+            DumpWindowTreeToFile(pWindow.get(), base + ".txt");
+            const bool captured = CaptureWindowPixels(pWindow.get(), base + ".raw");
+            fprintf(stderr, "[shot] window %d (%s) pixels=%s\n", index,
+                    pWindow->GetWindowId().c_str(), captured ? "ok" : "failed");
+            ++index;
+        }
+        fflush(stderr);
+        std::_Exit(0);
     }
     return result;
 }

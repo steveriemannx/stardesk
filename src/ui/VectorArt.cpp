@@ -293,12 +293,12 @@ void AccentButton::Paint(IRender* pRender, const UiRect& rcPaint)
     const Palette& p = Theme::Get();
     const UiRect rc = GetRect();
     const ui::ControlStateType state = GetState();
-    UiColor bg = p.accent;
+    UiColor bg = m_danger ? p.danger : p.accent;
     if (state == ui::kControlStateHot) {
-        bg = p.accentHover;
+        bg = m_danger ? p.danger : p.accentHover;
     }
     else if (state == ui::kControlStatePushed) {
-        bg = p.accentPressed;
+        bg = m_danger ? p.danger : p.accentPressed;
     }
     else if (!IsEnabled()) {
         bg = p.border;
@@ -424,7 +424,9 @@ void CardHBox::Paint(ui::IRender* pRender, const ui::UiRect& rcPaint)
 {
     const Palette& p = Theme::Get();
     const ui::UiRect rc = GetRect();
-    pRender->FillRoundRect(UiRectF::MakeFromRect(rc), 10.0f, 10.0f, p.panelBg, 255);
+    const bool hot = GetState() == ui::kControlStateHot;
+    pRender->FillRoundRect(UiRectF::MakeFromRect(rc), 10.0f, 10.0f,
+                           hot ? p.listHover : p.panelBg, 255);
     pRender->DrawRoundRect(UiRectF::MakeFromRect(rc), 10.0f, 10.0f, p.border, 1.0f);
     BaseClass::Paint(pRender, rcPaint);
 }

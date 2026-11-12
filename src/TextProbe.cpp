@@ -15,6 +15,7 @@
 #include "include/core/SkFont.h"
 
 #include <cstdio>
+#include <string>
 #include <cstdint>
 #include <vector>
 
@@ -145,6 +146,93 @@ void RunTextProbe(const std::string& path)
     std::fwrite(pixels.data(), 1, pixels.size(), pFile);
     std::fclose(pFile);
     fprintf(stderr, "[probe] saved %s (%dx%d)\n", path.c_str(), kWidth, kHeight);
+}
+
+} // namespace sdk
+
+namespace sdk {
+
+namespace {
+
+void DumpControl(ui::Control* pControl, int depth, FILE* pFile)
+{
+    if (pControl == nullptr || pFile == nullptr) {
+        return;
+    }
+    const ui::UiRect rc = pControl->GetRect();
+    std::string text;
+    if (auto* pLabel = dynamic_cast<ui::Label*>(pControl)) {
+        text = pLabel->GetText();
+    }
+    const std::string name = pControl->GetName();
+    const bool visible = pControl->IsVisible();
+    fprintf(pFile, "%*s%s%s%s rect=%d,%d %dx%d%s%s%s\n", depth * 2, "",
+            pControl->GetType().c_str(), name.empty() ? "" : " name=", name.c_str(),
+            rc.left, rc.top, rc.Width(), rc.Height(),
+            visible ? "" : " HIDDEN", text.empty() ? "" : " text=\"",
+            text.empty() ? "" : text.c_str());
+    if (!text.empty()) {
+        fprintf(pFile, "%*s\"\n", 0, "");
+    }
+    auto* pBox = dynamic_cast<ui::Box*>(pControl);
+    if (pBox != nullptr) {
+        for (size_t i = 0; i < pBox->GetItemCount(); ++i) {
+            DumpControl(pBox->GetItemAt(i), depth + 1, pFile);
+        }
+    }
+}
+
+} // namespace
+
+void DumpWindowTreeToFile(ui::Window* pWindow, const std::string& path)
+{
+    if (pWindow == nullptr) {
+        return;
+    }
+    FILE* pFile = std::fopen(path.c_str(), "w");
+    if (pFile == nullptr) {
+        return;
+    }
+    ui::UiRect rcClient;
+    pWindow->GetClientRect(rcClient);
+    fprintf(pFile, "window %s client=%dx%d\n", pWindow->GetWindowId().c_str(),
+            rcClient.Width(), rcClient.Height());
+    ui::Box* pRoot = pWindow->GetRoot();
+    if (pRoot != nullptr) {
+        DumpControl(pRoot, 0, pFile);
+    }
+    std::fclose(pFile);
+}
+
+bool CaptureWindowPixels(ui::Window* pWindow, const std::string& path)
+{
+    if (pWindow == nullptr) {
+        return false;
+    }
+    ui::IRender* pRender = pWindow->GetRender();
+    if (pRender == nullptr) {
+        return false;
+    }
+    ui::UiRect rcClient;
+    pWindow->GetClientRect(rcClient);
+    const int32_t width = rcClient.Width();
+    const int32_t height = rcClient.Height();
+    if (width <= 0 || height <= 0) {
+        return false;
+    }
+    std::vector<uint8_t> pixels((size_t)width * height * 4);
+    if (!pRender->ReadPixels(ui::UiRect(0, 0, width, height), pixels.data(), pixels.size())) {
+        return false;
+    }
+    FILE* pFile = std::fopen(path.c_str(), "wb");
+    if (pFile == nullptr) {
+        return false;
+    }
+    const uint32_t header[2] = {(uint32_t)width, (uint32_t)height};
+    std::fwrite(header, sizeof(uint32_t), 2, pFile);
+    std::fwrite(pixels.data(), 1, pixels.size(), pFile);
+    std::fclose(pFile);
+    return true;
 }
 
 } // namespace sdk

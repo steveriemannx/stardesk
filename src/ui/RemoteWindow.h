@@ -49,6 +49,7 @@ private:
     void Disconnect();
     void ToggleFit();
     void SwitchCodec(int codec);
+    void UpdateCodecPill();
     void ApplyDisplayMode();
     void UpdateStatus();
 
@@ -112,10 +113,7 @@ private:
     PillButton* m_fitPill = nullptr;
     PillButton* m_fullscreenPill = nullptr;
     PillButton* m_cursorPill = nullptr;
-    PillButton* m_h264Pill = nullptr;
-    PillButton* m_vp9Pill = nullptr;
-    PillButton* m_av1Pill = nullptr;
-    PillButton* m_openh264Pill = nullptr;
+    PillButton* m_codecPill = nullptr;
     int m_currentCodec = 1; // matches the client default (H.264 on macOS)
     PillButton* m_sendFileBtn = nullptr;
     IconButton* m_disconnectBtn = nullptr;

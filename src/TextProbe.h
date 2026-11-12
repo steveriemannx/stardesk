@@ -14,6 +14,12 @@ namespace sdk {
  */
 void RunTextProbe(const std::string& path);
 
+/** Developer hooks: dump one window's control tree (type/name/rect/text) to a
+ *  text file and read its painted pixels back into a raw RGBA file
+ *  (first 8 bytes are width/height as two uint32). */
+void DumpWindowTreeToFile(ui::Window* pWindow, const std::string& path);
+bool CaptureWindowPixels(ui::Window* pWindow, const std::string& path);
+
 
 } // namespace sdk
 

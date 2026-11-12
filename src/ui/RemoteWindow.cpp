@@ -256,58 +256,24 @@ void RemoteWindow::OnInitWindow()
     });
     toolRow->AddItem(m_cursorPill);
 
-    // live codec switch (H.264 / VP9 / AV1)
-    ui::Control* codecSep = new ui::Control(this);
-    codecSep->SetAttribute("width", "6");
-    codecSep->SetMouseEnabled(false);
-    toolRow->AddItem(codecSep);
-
-    m_h264Pill = new PillButton(this);
-    m_h264Pill->SetText("H.264");
-    m_h264Pill->SetAttribute("width", "56");
-    m_h264Pill->SetAttribute("height", "30");
-    m_h264Pill->SetSelected(m_currentCodec == 1);
-    m_h264Pill->AttachClick([this](const ui::EventArgs&) {
-        SwitchCodec(1);
+    // live codec switch: one compact chip (click cycles H.264 -> VP9 -> AV1 ->
+    // OpenH.264) instead of four chips competing for toolbar space
+    m_codecPill = new PillButton(this);
+    m_codecPill->SetAttribute("width", "auto");
+    m_codecPill->SetAttribute("padding", "14,0,14,0");
+    m_codecPill->SetAttribute("height", "30");
+    m_lang.BindToolTip(m_codecPill, "remote.switchCodec");
+    m_codecPill->AttachClick([this](const ui::EventArgs&) {
+        const int next = m_currentCodec >= 4 ? 1 : m_currentCodec + 1;
+        SwitchCodec(next);
         return true;
     });
-    toolRow->AddItem(m_h264Pill);
-
-    m_vp9Pill = new PillButton(this);
-    m_vp9Pill->SetText("VP9");
-    m_vp9Pill->SetAttribute("width", "56");
-    m_vp9Pill->SetAttribute("height", "30");
-    m_vp9Pill->SetSelected(m_currentCodec == 2);
-    m_vp9Pill->AttachClick([this](const ui::EventArgs&) {
-        SwitchCodec(2);
-        return true;
-    });
-    toolRow->AddItem(m_vp9Pill);
-
-    m_av1Pill = new PillButton(this);
-    m_av1Pill->SetText("AV1");
-    m_av1Pill->SetAttribute("width", "56");
-    m_av1Pill->SetAttribute("height", "30");
-    m_av1Pill->SetSelected(m_currentCodec == 3);
-    m_av1Pill->AttachClick([this](const ui::EventArgs&) {
-        SwitchCodec(3);
-        return true;
-    });
-    toolRow->AddItem(m_av1Pill);
-
-    m_openh264Pill = new PillButton(this);
-    m_openh264Pill->SetText("OpenH.264");
-    m_openh264Pill->SetAttribute("width", "80");
-    m_openh264Pill->SetAttribute("height", "30");
-    m_openh264Pill->SetSelected(m_currentCodec == 4);
-    m_openh264Pill->AttachClick([this](const ui::EventArgs&) {
-        SwitchCodec(4);
-        return true;
-    });
-    toolRow->AddItem(m_openh264Pill);
+    toolRow->AddItem(m_codecPill);
+    UpdateCodecPill();
 
     m_sendFileBtn = new PillButton(this);
     m_sendFileBtn->SetText(SDK_TR("remote.sendFile"));
+    UpdateCodecPill();
     m_sendFileBtn->SetAttribute("width", "auto");
     m_sendFileBtn->SetAttribute("height", "30");
     m_sendFileBtn->SetAttribute("padding", "12,0,12,0");
@@ -924,15 +890,25 @@ void RemoteWindow::SwitchCodec(int codec)
         return;
     }
     m_currentCodec = codec;
-    if (m_h264Pill != nullptr) {
-        m_h264Pill->SetSelected(codec == 1);
-        m_vp9Pill->SetSelected(codec == 2);
-        m_av1Pill->SetSelected(codec == 3);
-        m_openh264Pill->SetSelected(codec == 4);
-    }
+    UpdateCodecPill();
     if (m_session && m_session->IsConnected()) {
         m_session->RequestCodec((uint8_t)codec);
     }
+}
+
+void RemoteWindow::UpdateCodecPill()
+{
+    if (m_codecPill == nullptr) {
+        return;
+    }
+    const char* name = "H.264";
+    switch (m_currentCodec) {
+    case 2: name = "VP9"; break;
+    case 3: name = "AV1"; break;
+    case 4: name = "OpenH.264"; break;
+    default: name = "H.264"; break;
+    }
+    m_codecPill->SetText(name);
 }
 
 void RemoteWindow::ToggleFullscreen()
