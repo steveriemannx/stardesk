@@ -27,8 +27,31 @@ cmake --build build --target stardesk -j 8
 open build/bin/stardesk.app
 ```
 
-指定目录里的 dui 会作为子项目一起构建(只构建库,不构建 dui 的 examples / tests /
-CEF);首次配置会构建 Skia,耗时较长,之后是增量构建。
+指定目录里的 dui 会作为子项目**在本工程的 build 目录里一起编译**(只构建库,不构建
+dui 的 examples / tests / CEF;Skia 使用预编译静态库)。所以构建目标是 `stardesk`,
+但依赖的 dui 库(`libdui.a`,约 340 个对象)也在同一个 build 树里 —— 第一次是全量,
+之后**只有改动过的文件会重新编译**。实测(macOS / 8 核):
+
+| 场景 | 耗时 |
+|------|------|
+| 什么都没有改(no-op) | ~1.8s |
+| 改了 1 个 stardesk 源文件 | ~3-4s |
+| 改了 1 个 dui 源文件 | ~3s |
+| 改了 dui 的公共头(被大量文件包含) | 会重编较多文件,几十秒 |
+
+本地 build 目录已配置 **ccache**(`CMAKE_CXX_COMPILER_LAUNCHER`),清理后或大范围重编
+时命中缓存会快很多。
+
+### 构建/部署脚本
+
+```bash
+./scripts/build-deploy.sh            # 只编译本地 mac 端
+./scripts/build-deploy.sh --host     # 本地编译 + 同步并重建 Linux 主机 + 重启服务
+```
+
+`--host` 用 rsync 只传改动的源文件(保留 mtime,远端只重编改过的文件),实测一次
+「改 1 个文件 → 同步 → 主机重编 → 重启」约 **10-13 秒**,而以前"每次 touch 全部源码"
+的方式要 60-90 秒。主机地址/目录可用 `STARDESK_HOST`、`STARDESK_HOST_DIR` 覆盖。
 
 如果要把本目录放回 dui 树里构建,直接拷成 `<dui>/examples/stardesk`(不要传
 `DUI_SRC_ROOT_DIR`,它会自动识别 `../..` 为 dui 源码树)。
