@@ -1505,10 +1505,24 @@ LRESULT MainWindow::OnPaintMsg(const ui::UiRect& rcPaint, const ui::NativeMsg& n
                         SelectTab(false);
                     }
                 }
-                if (std::getenv("STARDESK_UI_SHOT_TYPE") != nullptr && m_remotePwdEdit != nullptr) {
+                const char* shotType = std::getenv("STARDESK_UI_SHOT_TYPE");
+                if (shotType != nullptr && m_remotePwdEdit != nullptr) {
                     m_remotePwdEdit->SetText("");
                     m_remotePwdEdit->SetFocus();
-                    m_remotePwdEdit->InsertText(0, "87654321");
+                    if (std::string(shotType) == "char") {
+                        // exercise the real per-keystroke path instead of SetText
+                        const std::string typed = "87654321";
+                        for (const char ch : typed) {
+                            ui::EventArgs charEvent;
+                            charEvent.eventType = ui::kEventChar;
+                            charEvent.wParam = (WPARAM)ch;
+                            m_remotePwdEdit->HandleEvent(charEvent);
+                        }
+                    }
+                    else {
+                        m_remotePwdEdit->InsertText(0, "87654321");
+                        m_remotePwdEdit->SetSel(8, 8); // collapse the caret at the end
+                    }
                     int32_t selStart = 0;
                     int32_t selEnd = 0;
                     m_remotePwdEdit->GetSel(selStart, selEnd);
