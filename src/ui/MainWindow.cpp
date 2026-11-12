@@ -1481,44 +1481,68 @@ LRESULT MainWindow::OnPaintMsg(const ui::UiRect& rcPaint, const ui::NativeMsg& n
 {
     LRESULT result = BaseClass::OnPaintMsg(rcPaint, nativeMsg, bHandled);
 
-    // developer hook: after the first paint, snapshot every open window
-    // (client pixels + control tree) into STARDESK_UI_SHOT_DIR
+    // Developer hook: dump the pixels + control tree of every open window into
+    // STARDESK_UI_SHOT_DIR (used to verify the macOS UI without a screen
+    // recording permission). The capture happens on a paint triggered after a
+    // short delay so dialogs/second windows exist; optional test hooks:
+    //   STARDESK_UI_SHOT_TAB=file   select the file tab first
+    //   STARDESK_UI_SHOT_TYPE=1     type a password into the remote field first
     static bool sCaptured = false;
-    static const auto sFirstPaint = std::chrono::steady_clock::now();
+    static bool sKickScheduled = false;
+    static bool sKickDone = false;
     const char* shotDir = std::getenv("STARDESK_UI_SHOT_DIR");
-    const bool shotDelayElapsed =
-        std::chrono::steady_clock::now() - sFirstPaint >= std::chrono::milliseconds(3000);
-    // optional tab switch first, then snapshot on the following paint so the
-    // new tab has actually been laid out
-    static bool sTabApplied = false;
-    if (!sCaptured && shotDir != nullptr && shotDelayElapsed && !sTabApplied) {
-        const char* shotTab = std::getenv("STARDESK_UI_SHOT_TAB");
-        if (shotTab != nullptr && std::string(shotTab) == "file") {
-            sTabApplied = true;
-            SelectTab(false);
-            return result;
-        }
-        sTabApplied = true;
+    if (shotDir == nullptr) {
+        return result;
     }
-    if (!sCaptured && shotDir != nullptr && shotDelayElapsed) {
-        sCaptured = true;
-        std::vector<ui::WindowPtr> windows =
-            ui::GlobalManager::Instance().Windows().GetAllWindowList();
-        int index = 0;
-        for (const ui::WindowPtr& pWindow : windows) {
-            if (pWindow.get() == nullptr) {
-                continue;
-            }
-            const std::string base = std::string(shotDir) + "/win" + std::to_string(index);
-            DumpWindowTreeToFile(pWindow.get(), base + ".txt");
-            const bool captured = CaptureWindowPixels(pWindow.get(), base + ".raw");
-            fprintf(stderr, "[shot] window %d (%s) pixels=%s\n", index,
-                    pWindow->GetWindowId().c_str(), captured ? "ok" : "failed");
-            ++index;
-        }
-        fflush(stderr);
-        std::_Exit(0);
+    if (!sKickScheduled) {
+        sKickScheduled = true;
+        std::thread([this]() {
+            std::this_thread::sleep_for(std::chrono::milliseconds(3200));
+            PostToUI(ui::UiBind(this, [this]() {
+                if (std::getenv("STARDESK_UI_SHOT_TAB") != nullptr) {
+                    const std::string tab = std::getenv("STARDESK_UI_SHOT_TAB");
+                    if (tab == "file") {
+                        SelectTab(false);
+                    }
+                }
+                if (std::getenv("STARDESK_UI_SHOT_TYPE") != nullptr && m_remotePwdEdit != nullptr) {
+                    m_remotePwdEdit->SetText("");
+                    m_remotePwdEdit->SetFocus();
+                    m_remotePwdEdit->InsertText(0, "87654321");
+                    int32_t selStart = 0;
+                    int32_t selEnd = 0;
+                    m_remotePwdEdit->GetSel(selStart, selEnd);
+                    fprintf(stderr, "[shot] typed password len=%zu sel=%d,%d\n",
+                            ui::StringConvert::TToUTF8(m_remotePwdEdit->GetText()).size(),
+                            selStart, selEnd);
+                    fflush(stderr);
+                }
+                sKickDone = true;
+                InvalidateAll();
+            }));
+        }).detach();
+        return result;
     }
+    if (sCaptured || !sKickDone) {
+        return result;
+    }
+    sCaptured = true;
+    std::vector<ui::WindowPtr> windows =
+        ui::GlobalManager::Instance().Windows().GetAllWindowList();
+    int index = 0;
+    for (const ui::WindowPtr& pWindow : windows) {
+        if (pWindow.get() == nullptr) {
+            continue;
+        }
+        const std::string base = std::string(shotDir) + "/win" + std::to_string(index);
+        DumpWindowTreeToFile(pWindow.get(), base + ".txt");
+        const bool captured = CaptureWindowPixels(pWindow.get(), base + ".raw");
+        fprintf(stderr, "[shot] window %d (%s) pixels=%s\n", index,
+                pWindow->GetWindowId().c_str(), captured ? "ok" : "failed");
+        ++index;
+    }
+    fflush(stderr);
+    std::_Exit(0);
     return result;
 }
 
