@@ -162,7 +162,10 @@ enum class VideoCodec : uint8_t {
 
 // audio codecs (AudioInit codec byte)
 enum class AudioCodec : uint8_t {
-    None = 0,
+    // Not "None": X11/Xlib.h defines None as a macro (0L), and any translation
+    // unit that includes X11 headers (the Linux X11 build) would break on the
+    // enumerator.
+    NoAudio = 0,
     Opus = 1, // libopus (host encode) + libopus (client decode), 48kHz stereo
 };
 
