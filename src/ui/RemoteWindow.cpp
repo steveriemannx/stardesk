@@ -329,6 +329,7 @@ void RemoteWindow::OnInitWindow()
     m_statusLabel->SetRole(ThemeLabel::Role::Sub);
     m_statusLabel->SetText(SDK_TR("remote.waitingStream"));
     m_statusLabel->SetAttribute("width", "auto");
+    m_statusLabel->SetAttribute("height", "stretch");
     m_statusLabel->SetAttribute("margin", "0,0,4,0");
     toolRow->AddItem(m_statusLabel);
 

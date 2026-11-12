@@ -325,6 +325,7 @@ void App::SetTheme(bool dark)
     }
     m_config.darkTheme = dark;
     Theme::Set(dark);
+    Theme::SyncGlobalColors();
     for (IAppListener* l : m_listeners) {
         if (l != nullptr) {
             l->OnThemeChanged();

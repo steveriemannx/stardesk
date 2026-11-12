@@ -156,13 +156,19 @@ public:
 
     explicit ThemeLabel(ui::Window* pWindow);
 
-    void SetRole(Role role) { m_role = role; }
+    void SetRole(Role role) { m_role = role; m_lastColor = 0; }
     Role GetRole() const { return m_role; }
 
+    virtual void Paint(ui::IRender* pRender, const ui::UiRect& rcPaint) override;
     void PaintText(ui::IRender* pRender, const ui::UiRect& rcPaint);
 
 private:
+    /** Push the role color into dui's label painter (it keeps alignment,
+     *  multi-line handling and ellipsis, which the hand-rolled text drawing
+     *  below does not). */
+    void ApplyRoleColor();
     Role m_role = Role::Main;
+    uint32_t m_lastColor = 0;
 };
 
 } // namespace sdk

@@ -253,7 +253,10 @@ void MainWindow::OnInitWindow()
     });
     caption->AddItem(m_themeBtn);
 
-    // min / max / restore / close (names drive dui's built-in caption behavior)
+#if !defined(__APPLE__)
+    // min / max / restore / close (names drive dui's built-in caption behavior).
+    // macOS gets the self-drawn traffic lights from dui instead: creating these
+    // as well showed an unwanted maximize button at the right of the caption.
     IconButton* minBtn = MakeIconButton(VectorArt::Icon::Min, "window.min", "minbtn");
     minBtn->SetAttribute("width", "34");
     minBtn->SetAttribute("height", "30");
@@ -278,6 +281,7 @@ void MainWindow::OnInitWindow()
     closeBtn->SetAttribute("height", "30");
     closeBtn->SetAttribute("margin", "0,3,4,3");
     caption->AddItem(closeBtn);
+#endif // !__APPLE__
 
     // ---- body ----
     ui::HBox* body = new ui::HBox(this);
@@ -597,12 +601,15 @@ void MainWindow::OnInitWindow()
     });
     row3->AddItem(m_connectBtn);
 
+    // status on its own line: sharing the row squeezed "已连接" down to a single
+    // character on Retina macs
+    ui::HBox* statusRow = makeRow(cardConn, "20");
     m_connStatusLabel = static_cast<ThemeLabel*>(MakeLabel("", ThemeLabel::Role::Sub));
     m_connStatusLabel->SetText("");
-    m_connStatusLabel->SetAttribute("margin", "6,0,0,0");
-    m_connStatusLabel->SetAttribute("text_align", "left,top");
-    m_connStatusLabel->SetAttribute("multi_line", "true");
-    row3->AddItem(m_connStatusLabel);
+    m_connStatusLabel->SetAttribute("width", "stretch");
+    m_connStatusLabel->SetAttribute("height", "stretch");
+    m_connStatusLabel->SetAttribute("text_align", "left,vcenter");
+    statusRow->AddItem(m_connStatusLabel);
 
     // ---- file tab ----
     m_panelFile = new ui::VBox(this);
@@ -1139,12 +1146,14 @@ void MainWindow::SetLanDevices(const std::vector<std::pair<std::string, std::str
         nameLabel->SetRole(ThemeLabel::Role::Main);
         nameLabel->SetText(nameIp.first);
         nameLabel->SetAttribute("width", "stretch");
+        nameLabel->SetAttribute("height", "stretch");
         row->AddItem(nameLabel);
 
         ThemeLabel* addrLabel = new ThemeLabel(this);
         addrLabel->SetRole(ThemeLabel::Role::Sub);
         addrLabel->SetText(nameIp.second);
         addrLabel->SetAttribute("width", "auto");
+        addrLabel->SetAttribute("height", "stretch");
         row->AddItem(addrLabel);
 
         if (removable) {

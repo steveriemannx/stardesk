@@ -1,6 +1,7 @@
 #include "Theme.h"
 
 #include "dui/Utils/StringConvert.h"
+#include "dui/Core/GlobalManager.h"
 
 #include <cstdio>
 
@@ -70,6 +71,35 @@ const Palette& Theme::Light()
 const Palette& Theme::Get()
 {
     return s_isDark ? Dark() : Light();
+}
+
+void Theme::SyncGlobalColors()
+{
+    const Palette& p = Get();
+    auto& colorMgr = ui::GlobalManager::Instance().Color();
+    struct Entry {
+        const char* name;
+        ui::UiColor color;
+    };
+    const Entry entries[] = {
+        {"white", ui::UiColor(0xFFFFFFFF)},
+        {"black", ui::UiColor(0xFF000000)},
+        {"darkcolor", ui::UiColor(0xFF333333)},
+        {"lightcolor", ui::UiColor(0xFF888888)},
+        {"sd_text_main", p.textMain},
+        {"sd_text_sub", p.textSub},
+        {"sd_text_invert", p.textInvert},
+        {"sd_accent", p.accent},
+        {"sd_success", p.success},
+        {"sd_danger", p.danger},
+    };
+    // re-registering the whole map keeps the names stable while the values
+    // follow the theme (ColorManager has no single-entry remove)
+    colorMgr.RemoveAllColors();
+    for (const Entry& entry : entries) {
+        colorMgr.AddColor(entry.name, entry.color);
+    }
+    colorMgr.SetDefaultTextColor("darkcolor");
 }
 
 void Theme::Set(bool dark)

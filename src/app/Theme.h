@@ -43,6 +43,11 @@ public:
     /** "#AARRGGBB" string form, for SetAttribute("bkcolor", ...). */
     static std::string Hex(ui::UiColor c);
 
+    /** Publish the current palette in dui's colour map (names sd_*) so plain
+     *  dui labels can reference the theme colours by attribute. Called on
+     *  startup and on every theme switch. */
+    static void SyncGlobalColors();
+
 private:
     static const Palette& Dark();
     static const Palette& Light();

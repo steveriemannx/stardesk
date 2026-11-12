@@ -437,6 +437,32 @@ ThemeLabel::ThemeLabel(ui::Window* pWindow) : BaseClass(pWindow)
     SetMouseEnabled(false);
 }
 
+void ThemeLabel::ApplyRoleColor()
+{
+    const char* colorName = "sd_text_main";
+    switch (m_role) {
+    case Role::Sub:    colorName = "sd_text_sub"; break;
+    case Role::Title:  colorName = "sd_text_sub"; break;
+    case Role::Accent: colorName = "sd_accent"; break;
+    case Role::Success: colorName = "sd_success"; break;
+    case Role::Danger: colorName = "sd_danger"; break;
+    default: break;
+    }
+    const uint32_t key = (uint32_t)m_role + 1;
+    if (key == m_lastColor) {
+        return;
+    }
+    m_lastColor = key;
+    // "textcolor" is the attribute dui's LabelImpl uses for the paint colour
+    const_cast<ThemeLabel*>(this)->SetAttribute("normal_text_color", colorName);
+}
+
+void ThemeLabel::Paint(ui::IRender* pRender, const UiRect& rcPaint)
+{
+    ApplyRoleColor();
+    BaseClass::Paint(pRender, rcPaint);
+}
+
 void ThemeLabel::PaintText(IRender* pRender, const UiRect& rcPaint)
 {
     const std::string text = GetText();

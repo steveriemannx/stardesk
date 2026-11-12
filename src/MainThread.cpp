@@ -1,6 +1,7 @@
 #include "MainThread.h"
 
 #include "app/AppConfig.h"
+#include "app/Theme.h"
 #include "session/HostSession.h"
 #include "ui/MainWindow.h"
 #include "TextProbe.h"
@@ -57,6 +58,9 @@ void InitFontsAndColors()
     cm.AddColor("darkcolor", UiColor(0xFF333333));
     cm.AddColor("lightcolor", UiColor(0xFF888888));
     cm.SetDefaultTextColor("darkcolor");
+
+    // expose the app palette to plain dui labels (sd_* colour names)
+    Theme::SyncGlobalColors();
 }
 
 } // namespace
