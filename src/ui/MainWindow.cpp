@@ -1045,8 +1045,8 @@ void MainWindow::OnClientState(ClientSession::State state, const std::string& te
                     rcRemotePos.left, rcRemotePos.top, rcRemotePos.Width(),
                     rcRemotePos.Height());
             fflush(stderr);
-            const int32_t cascadeX = rw->Dpi().GetScaleInt(140);
-            const int32_t cascadeY = rw->Dpi().GetScaleInt(90);
+            const int32_t cascadeX = rw->Dpi().GetScaleInt(36);
+            const int32_t cascadeY = rw->Dpi().GetScaleInt(26);
             rw->MoveWindow(rcRemotePos.left + cascadeX, rcRemotePos.top + cascadeY,
                            rcRemotePos.Width(), rcRemotePos.Height(), true);
             const ui::UiRect rcRemoteAfter = rw->GetWindowPos(false);
