@@ -55,6 +55,14 @@ private:
     void SendKey(uint16_t vkCode, uint32_t modifierKey, bool down);
     bool MapToRemote(const ui::UiPoint& pt, double& nx, double& ny);
 
+    /** Current pointer position in CLIENT PIXELS (the space dui lays controls
+     *  out in). On macOS AppKit reports points and NativeWindow_MacOS::
+     *  ScreenToClient keeps them in points, so they are scaled here; the
+     *  cursor overlay used to draw at point coordinates inside a pixel layout,
+     *  which put the self-drawn cursor at roughly half the real position on a
+     *  Retina display. */
+    ui::UiPoint GetCursorClientPixels() const;
+
     /** Aspect-fit destination rect of the stream bitmap (control coords),
      *  mirroring BitmapControl's adaptive-dest math. GetBitmapDest() returns
      *  empty here (the stream bitmap sets no explicit rcDest attribute and

@@ -158,6 +158,9 @@ void RemoteWindow::OnInitWindow()
 
     // ---- caption ----
     ui::HBox* caption = new ui::HBox(this);
+    // macOS: name it as the dui caption bar so WindowImplBase adds the
+    // self-drawn traffic lights (close/minimize/zoom) on this window too.
+    caption->SetAttribute("name", "window_caption_bar");
     caption->SetAttribute("height", "36");
     caption->SetBkColor(p.captionBg);
     root->AddItem(caption);
@@ -378,6 +381,16 @@ void RemoteWindow::OnInitWindow()
     }
 
     BaseClass::OnInitWindow();
+
+    // macOS: WindowImplBase inserts the self-drawn traffic lights when the
+    // caption bar control is present; log it so the self-drawn caption is
+    // verifiable from the client log.
+    if (FindControl("mac_traffic_lights") != nullptr) {
+        fprintf(stderr, "[client] mac traffic lights: present\n");
+    }
+    else {
+        fprintf(stderr, "[client] mac traffic lights: NOT added\n");
+    }
 }
 
 // ---------------------------------------------------------------- frame display
@@ -389,6 +402,31 @@ void RemoteWindow::OnFrameReady(int w, int h, const std::vector<uint8_t>& rgba,
     m_cacheW = w;
     m_cacheH = h;
     UpdateDisplaySize();
+
+    // test hook: STARDESK_TEST_POINTER_CLIENT=x,y sends a move plus click
+    // through the REAL client->host mapping at these client-window pixels.
+    // The host log then shows the injected target, so the mapping can be
+    // verified end to end without GUI input.
+    if (const char* tpc = std::getenv("STARDESK_TEST_POINTER_CLIENT")) {
+        static bool sSentClient = false;
+        if (!sSentClient && m_session != nullptr && m_session->IsConnected() && w > 0) {
+            sSentClient = true;
+            int px = 0, py = 0;
+            std::sscanf(tpc, "%d,%d", &px, &py);
+            ui::UiPoint pt;
+            pt.x = px;
+            pt.y = py;
+            const UiRect dest = ComputeBitmapDest();
+            double nx = 0.0, ny = 0.0;
+            MapToRemote(pt, nx, ny);
+            fprintf(stderr,
+                    "[client] test pointer client=(%d,%d) dest=(%d,%d,%d,%d) n=(%.3f,%.3f)\n",
+                    px, py, dest.left, dest.top, dest.right, dest.bottom, nx, ny);
+            SendMouse(0, pt, 0);
+            SendButtonMsg(true, 0, pt);
+            SendButtonMsg(false, 0, pt);
+        }
+    }
 
     // test hook: STARDESK_TEST_POINTERS=nx,ny sends one pointer move plus an
     // absolute click at that normalized position once the first frame arrives.
@@ -426,6 +464,19 @@ void RemoteWindow::OnFrameReady(int w, int h, const std::vector<uint8_t>& rgba,
     }
 }
 
+ui::UiPoint RemoteWindow::GetCursorClientPixels() const
+{
+    ui::UiPoint pt;
+    GetCursorPos(pt);
+    ScreenToClient(pt);
+#if defined(DUI_BUILD_FOR_MACOS)
+    // AppKit cursor coordinates are window POINTS; dui controls live in client
+    // PIXELS (2x on Retina), so scale them to match ComputeBitmapDest().
+    Dpi().ScalePoint(pt);
+#endif
+    return pt;
+}
+
 void RemoteWindow::RefreshCursorOverlay()
 {
     if (m_bitmap == nullptr || m_cursorMode == 0 || !m_inputEngaged) {
@@ -434,9 +485,7 @@ void RemoteWindow::RefreshCursorOverlay()
     if (m_session == nullptr || m_session->IsViewMode() || m_cursorMode == 2) {
         return;
     }
-    ui::UiPoint cursorPt;
-    GetCursorPos(cursorPt);
-    ScreenToClient(cursorPt);
+    const ui::UiPoint cursorPt = GetCursorClientPixels();
     if (cursorPt == m_lastOverlayPt) {
         return; // cursor unchanged: nothing to repaint
     }
@@ -494,9 +543,7 @@ LRESULT RemoteWindow::OnPaintMsg(const UiRect& rcPaint, const ui::NativeMsg& nat
         m_bitmap != nullptr) {
         // dual mode: track the LOCAL cursor (instant - overlaps the native
         // pointer, no network-latency gap between the two cursors)
-        ui::UiPoint cursorPt;
-        GetCursorPos(cursorPt);
-        ScreenToClient(cursorPt);
+        const ui::UiPoint cursorPt = GetCursorClientPixels();
         const UiRect dest = ComputeBitmapDest();
         ui::IRender* render = GetRender();
         if (render != nullptr && dest.Width() > 0 && dest.Height() > 0 &&
@@ -505,7 +552,8 @@ LRESULT RemoteWindow::OnPaintMsg(const UiRect& rcPaint, const ui::NativeMsg& nat
             cursorPt.y <= dest.top + dest.Height()) {
             EnsureCursorBitmap();
             if (m_cursorBitmap != nullptr) {
-                UiRect rcDest(cursorPt.x, cursorPt.y, cursorPt.x + 16, cursorPt.y + 16);
+                const int curW = Dpi().GetScaleInt(16);
+                UiRect rcDest(cursorPt.x, cursorPt.y, cursorPt.x + curW, cursorPt.y + curW);
                 UiRect rcSrc(0, 0, 16, 16);
                 render->DrawImage(rcPaint, m_cursorBitmap, rcDest, rcSrc, 255);
             }
@@ -521,7 +569,8 @@ LRESULT RemoteWindow::OnPaintMsg(const UiRect& rcPaint, const ui::NativeMsg& nat
             const int cy = dest.top + (int)((int64_t)m_cursorYN * dest.Height() / 65535);
             EnsureCursorBitmap();
             if (m_cursorBitmap != nullptr) {
-                UiRect rcDest(cx, cy, cx + 16, cy + 16);
+                const int curW = Dpi().GetScaleInt(16);
+                UiRect rcDest(cx, cy, cx + curW, cy + curW);
                 UiRect rcSrc(0, 0, 16, 16);
                 render->DrawImage(rcPaint, m_cursorBitmap, rcDest, rcSrc, 255);
             }

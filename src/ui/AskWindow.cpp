@@ -76,6 +76,8 @@ void AskWindow::OnInitWindow()
 
     // caption
     ui::HBox* caption = new ui::HBox(this);
+    // macOS self-drawn traffic lights (see RemoteWindow)
+    caption->SetAttribute("name", "window_caption_bar");
     caption->SetAttribute("height", "32");
     caption->SetBkColor(p.captionBg);
     root->AddItem(caption);
