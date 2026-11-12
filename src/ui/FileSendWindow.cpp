@@ -88,6 +88,7 @@ void FileSendWindow::OnInitWindow()
     m_lang.SetText(title, "file.title");
     title->SetAttribute("font", "system_bold_12");
     title->SetAttribute("width", "auto");
+    title->SetAttribute("height", "stretch");
     title->SetAttribute("margin", "12,0,0,0");
     caption->AddItem(title);
 

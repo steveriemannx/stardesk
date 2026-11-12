@@ -170,6 +170,7 @@ void RemoteWindow::OnInitWindow()
     m_titleLabel->SetText(m_session ? ui::StringConvert::UTF8ToT(m_session->RemoteName()) : "");
     m_titleLabel->SetAttribute("font", "system_bold_12");
     m_titleLabel->SetAttribute("width", "auto");
+    m_titleLabel->SetAttribute("height", "stretch");
     m_titleLabel->SetAttribute("margin", "12,0,0,0");
     caption->AddItem(m_titleLabel);
 
@@ -178,6 +179,7 @@ void RemoteWindow::OnInitWindow()
         m_badgeLabel->SetRole(ThemeLabel::Role::Accent);
         m_badgeLabel->SetText(SDK_TR("remote.viewOnly"));
         m_badgeLabel->SetAttribute("width", "auto");
+        m_badgeLabel->SetAttribute("height", "stretch");
         m_badgeLabel->SetAttribute("margin", "10,0,0,0");
         caption->AddItem(m_badgeLabel);
     }

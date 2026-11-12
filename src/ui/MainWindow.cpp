@@ -210,6 +210,7 @@ void MainWindow::OnInitWindow()
     title->SetText("StarDesk");
     title->SetAttribute("font", "system_bold_14");
     title->SetAttribute("width", "auto");
+    title->SetAttribute("height", "stretch");
     title->SetAttribute("margin", "2,0,0,0");
     caption->AddItem(title);
 
@@ -218,6 +219,7 @@ void MainWindow::OnInitWindow()
     m_lang.SetText(subtitle, "app.subtitle");
     subtitle->SetAttribute("font", "system_12");
     subtitle->SetAttribute("width", "auto");
+    subtitle->SetAttribute("height", "stretch");
     subtitle->SetAttribute("margin", "10,0,0,0");
     caption->AddItem(subtitle);
 
