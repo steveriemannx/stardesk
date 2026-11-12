@@ -655,21 +655,7 @@ void MainWindow::OnInitWindow()
 
     m_deviceList = new ui::VBox(this);
     m_deviceList->SetAttribute("child_margin_y", "4");
-    m_deviceList->AttachClick([this](const ui::EventArgs&) {
-        // dui notifies the list box for row clicks too; those were already
-        // consumed by the row (which sets/keeps the selection)
-        if (m_deviceRowClick) {
-            m_deviceRowClick = false;
-            return true;
-        }
-        // genuinely empty area: clear the selection
-        if (!m_selectedDeviceIpPort.empty()) {
-            m_selectedDeviceIpPort.clear();
-            SetLanDevices(m_lastLanDevices);
-            InvalidateAll();
-        }
-        return true;
-    });
+    m_deviceList->SetAttribute("height", "stretch");
     cardDevices->AddItem(m_deviceList);
 
     m_deviceEmptyLabel = static_cast<ThemeLabel*>(MakeLabel("file.empty", ThemeLabel::Role::Sub));
@@ -1594,19 +1580,23 @@ void MainWindow::SetLanDevices(const std::vector<std::pair<std::string, std::str
                 m_remotePortEdit->SetText(ipPort.substr(colon + 1));
             }
         };
-        row->SetSelected(ipPort == m_selectedDeviceIpPort);
+        const bool rowSelected = (ipPort == m_selectedDeviceIpPort);
+        row->SetSelected(rowSelected);
+        if (rowSelected) {
+            nameLabel->SetRole(ThemeLabel::Role::Accent); // obvious even on dark
+        }
         row->AttachClick([this, ipPort](const ui::EventArgs&) {
-            m_deviceRowClick = true; // the list box also gets this click
             if (m_manageDevices) {
                 return true;
             }
+            fprintf(stderr, "[ui] device row click: %s\n", ipPort.c_str());
+            fflush(stderr);
             m_selectedDeviceIpPort = ipPort;
             SetLanDevices(m_lastLanDevices); // rebuild the rows with the highlight
             InvalidateAll();                 // and actually repaint them
             return true;
         });
         row->AttachDoubleClick([this, ipPort, fillFromRow](const ui::EventArgs&) {
-            m_deviceRowClick = true; // the list box also gets this click
             if (m_manageDevices) {
                 return true;
             }
@@ -1628,6 +1618,22 @@ void MainWindow::SetLanDevices(const std::vector<std::pair<std::string, std::str
         m_deviceEmptyLabel->SetAttribute("text_align", "hcenter,vcenter");
         m_deviceList->AddItem(m_deviceEmptyLabel);
     }
+
+    // click target for the empty area: a sibling of the rows, not their parent
+    ui::Control* filler = new ui::Control(this);
+    filler->SetAttribute("width", "stretch");
+    filler->SetAttribute("height", "stretch");
+    filler->AttachClick([this](const ui::EventArgs&) {
+        fprintf(stderr, "[ui] device list blank click\n");
+        fflush(stderr);
+        if (!m_selectedDeviceIpPort.empty()) {
+            m_selectedDeviceIpPort.clear();
+            SetLanDevices(m_lastLanDevices);
+            InvalidateAll();
+        }
+        return true;
+    });
+    m_deviceList->AddItem(filler);
 
     if (m_manageDevices && !m_hiddenDevices.empty()) {
         PillButton* restoreBtn = new PillButton(this);

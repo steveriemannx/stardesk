@@ -50,9 +50,6 @@ public:
     /** Refresh the LAN device discovery list. */
     /** Selected LAN/manual device row (click to select, double-click to fill). */
     std::string m_selectedDeviceIpPort;
-    /** Set by a row click so the list's "click empty area" handler does not
-     *  immediately clear the selection (dui also notifies the parent box). */
-    bool m_deviceRowClick = false;
     /** Reverse remote-assistance: token handed to the peer in the invitation. */
     uint8_t m_inviteToken[32] = {0};
     bool m_useInviteToken = false;
