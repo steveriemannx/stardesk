@@ -56,6 +56,8 @@ public:
     std::vector<std::pair<std::string, CardHBox*>> m_deviceRows;
     std::vector<std::pair<std::string, ThemeLabel*>> m_deviceNameLabels;
     bool m_deviceRowClicked = false;
+    /** Timestamp of the last row click (button-up fires for blank clicks too). */
+    std::chrono::steady_clock::time_point m_lastDeviceRowClick{};
     void ApplyDeviceSelection();
     /** Reverse remote-assistance: token handed to the peer in the invitation. */
     uint8_t m_inviteToken[32] = {0};

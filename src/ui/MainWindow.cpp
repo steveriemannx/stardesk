@@ -657,13 +657,12 @@ void MainWindow::OnInitWindow()
     m_deviceList->SetAttribute("child_margin_y", "4");
     m_deviceList->SetAttribute("height", "stretch");
     cardDevices->AddItem(m_deviceList);
-    cardDevices->AttachClick([this](const ui::EventArgs&) {
-        // runs for row clicks too: let the row handler run first, then decide
-        // whether this was really a click on the empty area
+    auto clearSelectionOnBlankClick = [this](const ui::EventArgs&) {
+        // button-up fires for row clicks too; the row handler marks the time
         PostToUI(ui::UiBind(this, [this]() {
-            if (m_deviceRowClicked) {
-                m_deviceRowClicked = false;
-                return;
+            const auto now = std::chrono::steady_clock::now();
+            if (now - m_lastDeviceRowClick < std::chrono::milliseconds(500)) {
+                return; // a row was just clicked - keep the selection
             }
             if (!m_selectedDeviceIpPort.empty()) {
                 fprintf(stderr, "[ui] device list blank click\n");
@@ -673,7 +672,9 @@ void MainWindow::OnInitWindow()
             }
         }));
         return true;
-    });
+    };
+    cardDevices->AttachButtonUp(clearSelectionOnBlankClick);
+    m_deviceList->AttachButtonUp(clearSelectionOnBlankClick);
 
     m_deviceEmptyLabel = static_cast<ThemeLabel*>(MakeLabel("file.empty", ThemeLabel::Role::Sub));
     m_deviceEmptyLabel->SetText(SDK_TR("file.empty"));
@@ -1039,6 +1040,66 @@ void MainWindow::OnInitWindow()
     SetLocalAddresses(ips);
 
     BaseClass::OnInitWindow();
+    {
+        const ui::UiRect wp = GetWindowPos(false);
+        fprintf(stderr, "[ui] window pos=%d,%d %dx%d\n", wp.left, wp.top,
+                wp.Width(), wp.Height());
+        fflush(stderr);
+    }
+
+#ifdef __APPLE__
+    // test hook: STARDESK_TEST_NATIVE_CLICK="x,y" posts a REAL native click at
+    // that screen point (the app has Accessibility, so the events are accepted)
+    if (const char* nativeClick = std::getenv("STARDESK_TEST_NATIVE_CLICK")) {
+        const std::string spec = nativeClick;
+        std::thread([spec]() {
+            std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+            const size_t comma = spec.find(',');
+            if (comma == std::string::npos) {
+                return;
+            }
+            const double x = std::atof(spec.substr(0, comma).c_str());
+            const double y = std::atof(spec.substr(comma + 1).c_str());
+            fprintf(stderr, "[test] native click at %.0f,%.0f\n", x, y);
+            fflush(stderr);
+            CGPoint pt = CGPointMake(x, y);
+            CGEventRef mv = CGEventCreateMouseEvent(nullptr, kCGEventMouseMoved, pt, kCGMouseButtonLeft);
+            CGEventPost(kCGHIDEventTap, mv);
+            CFRelease(mv);
+            std::this_thread::sleep_for(std::chrono::milliseconds(150));
+            CGEventRef dn = CGEventCreateMouseEvent(nullptr, kCGEventLeftMouseDown, pt, kCGMouseButtonLeft);
+            CGEventPost(kCGHIDEventTap, dn);
+            CFRelease(dn);
+            std::this_thread::sleep_for(std::chrono::milliseconds(90));
+            CGEventRef up = CGEventCreateMouseEvent(nullptr, kCGEventLeftMouseUp, pt, kCGMouseButtonLeft);
+            CGEventPost(kCGHIDEventTap, up);
+            CFRelease(up);
+        }).detach();
+    }
+#endif
+
+    // test hook: STARDESK_TEST_CLICK_DEVICE=ip:port simulates a click on that row
+    if (const char* clickDev = std::getenv("STARDESK_TEST_CLICK_DEVICE")) {
+        const std::string target = clickDev;
+        std::thread([this, target]() {
+            std::this_thread::sleep_for(std::chrono::milliseconds(2500));
+            PostToUI(ui::UiBind(this, [this, target]() {
+                for (auto& entry : m_deviceRows) {
+                    if (entry.first != target) {
+                        continue;
+                    }
+                    fprintf(stderr, "[test] sending click event to row %s (selected before=%d)\n",
+                            target.c_str(), (int)entry.second->IsSelected());
+                    fflush(stderr);
+                    entry.second->SendEvent(ui::kEventMouseButtonUp);
+                    break;
+                }
+                fprintf(stderr, "[test] after click: selection='%s'\n",
+                        m_selectedDeviceIpPort.c_str());
+                fflush(stderr);
+            }));
+        }).detach();
+    }
 
     // test hook: STARDESK_TEST_SEND_INVITE=ip:port sends an assistance invitation
     if (const char* inv = std::getenv("STARDESK_TEST_SEND_INVITE")) {
@@ -1605,13 +1666,16 @@ void MainWindow::SetLanDevices(const std::vector<std::pair<std::string, std::str
         }
         m_deviceRows.emplace_back(ipPort, row);
         m_deviceNameLabels.emplace_back(ipPort, nameLabel);
-        row->AttachClick([this, ipPort](const ui::EventArgs&) {
+        // HBox rows do not receive kEventClick (Control::Activate is a no-op for
+        // plain layouts), so selection listens to the mouse button-up event,
+        // which every control receives.
+        row->AttachButtonUp([this, ipPort](const ui::EventArgs&) {
             if (m_manageDevices) {
                 return true;
             }
-            fprintf(stderr, "[ui] device row click: %s\n", ipPort.c_str());
+            fprintf(stderr, "[ui] device row button-up: %s\n", ipPort.c_str());
             fflush(stderr);
-            m_deviceRowClicked = true;
+            m_lastDeviceRowClick = std::chrono::steady_clock::now();
             m_selectedDeviceIpPort = ipPort;
             ApplyDeviceSelection();
             return true;
@@ -1620,7 +1684,7 @@ void MainWindow::SetLanDevices(const std::vector<std::pair<std::string, std::str
             if (m_manageDevices) {
                 return true;
             }
-            m_deviceRowClicked = true;
+            m_lastDeviceRowClick = std::chrono::steady_clock::now();
             m_selectedDeviceIpPort = ipPort;
             fillFromRow();
             ApplyDeviceSelection();

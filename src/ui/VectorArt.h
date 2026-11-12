@@ -94,7 +94,6 @@ public:
     explicit PillButton(ui::Window* pWindow);
 
     void SetSelected(bool selected) { m_selected = selected; }
-    bool IsSelected() const { return m_selected; }
 
     virtual void Paint(ui::IRender* pRender, const ui::UiRect& rcPaint) override;
     void PaintText(ui::IRender* pRender, const ui::UiRect& rcPaint);
@@ -142,6 +141,7 @@ public:
 
     /** Selected row: highlighted background + accent border. */
     void SetSelected(bool selected) { m_selected = selected; }
+    bool IsSelected() const { return m_selected; }
 
 private:
     bool m_selected = false;
